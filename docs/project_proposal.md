@@ -205,3 +205,58 @@ The application will:
 
 This table links each requirement to its module, function and test. It will be
 completed after the detailed design and the unit-test plan are prepared.
+
+## 5. High-Level Architecture
+
+### 5.1 Architecture Description
+
+The CAN Log Decoder is a layered console application written in C. Each layer
+has one responsibility and communicates only through functions declared in
+header files.
+
+- **Application interface.** `menu.c` displays the menu and reads the user's
+  input safely. `main.c` contains only the high-level control loop: it asks
+  `menu.c` for a validated choice and calls the module that performs it.
+- **File storage.** `file_handler.c` is the only module that opens, reads and
+  closes files. It reads the CSV log file one line at a time.
+- **Data processing.** `parser.c` converts a CSV text line into a frame,
+  turning the hexadecimal text into numbers. `validation.c` checks the
+  identifier, the data length and the checksum. `decoder.c` extracts the
+  signals from the data bytes using shifts, masks and scale factors. These
+  modules do not read files or print, so they can be unit tested.
+- **In-memory storage.** `frame_store.c` keeps up to 1000 processed frames in
+  a fixed-size array, so that the user can review them by identifier or by
+  error type.
+- **Reports and outputs.** `report.c` formats and prints the decoded frames,
+  the statistics, the error frames and the summary to the console.
+
+Shared data types and constants are declared in one header file, `types.h`.
+The table of known identifiers and signals is kept in one place so that it can
+be changed without editing the decoding logic.
+
+### 5.2 Architecture Diagram
+
+![Software Architecture](architecture.png)
+
+### 5.3 High-Level Workflow
+
+1. The user starts the program.
+2. The program displays the main menu.
+3. The user enters a choice. If the choice is invalid, the program shows a
+   message and displays the menu again.
+4. **Load log file:** the user enters a file name. The program opens the file
+   and reports an error if it cannot be read.
+5. **Decode:** for each data line, the program parses it, checks the
+   identifier, the data length and the checksum, decodes the signals of valid
+   frames and stores the result. Malformed lines are rejected with their line
+   number and the reason, and processing continues.
+6. **Show statistics:** the program shows, for each identifier, the frames
+   received, the valid frames and the error frames.
+7. **Show frames of one identifier:** the user enters an identifier and the
+   program lists the stored frames with that identifier.
+8. **Show error frames:** the program lists the stored frames that failed a
+   check, with the type of each error.
+9. **Decode a single frame:** the user enters the identifier and the data bytes
+   of one frame, and the program validates and decodes it.
+10. After each action, the program returns to the menu.
+11. **Exit:** the program closes any open file and ends.
