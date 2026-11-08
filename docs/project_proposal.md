@@ -99,3 +99,61 @@ The application will:
 | ECU software engineer | Develops software that sends and receives CAN messages | Decodes recorded traffic to check that the transmitted signals have the expected values |
 | Test and validation engineer | Reviews recorded vehicle or bench data | Loads a log, finds corrupted or unknown frames and reviews statistics for each message |
 | Student or evaluator (secondary) | Learns from or assesses the project | Builds, runs and tests the application to see the design in action |
+
+## 3. Project Scope
+
+### 3.1 In-Scope Features
+
+1. Load a CSV log file of CAN frames.
+2. Parse each line, converting the hexadecimal text into numbers, and reject
+   malformed lines with the line number and the reason.
+3. Validate each frame: known identifier, data length of 8 bytes and a correct
+   checksum.
+4. Decode the signals of three messages (engine data, vehicle speed and
+   battery status) using bit shifts, masks and scale factors.
+5. Store up to 1000 processed frames in memory.
+6. Provide a console menu to load a file, decode it, show statistics for each
+   identifier, show the frames of one identifier, show the error frames and
+   decode a single frame entered by the user.
+7. Validate all user input, including menu choices, file names and the bytes of
+   a frame entered by hand.
+8. Display the decoded values and a summary report of the frames received and
+   the errors found.
+
+### 3.2 Out-of-Scope Features
+
+1. Any CAN hardware, adapter or live capture of CAN traffic.
+2. Transmitting CAN frames.
+3. Lower-level CAN mechanisms such as the hardware CRC, bit stuffing,
+   arbitration and acknowledgement.
+4. Reading DBC files. The signal layout is fixed in the program.
+5. Extended 29-bit identifiers, remote frames and CAN FD.
+6. Big-endian and signed signals.
+7. More than three message types.
+8. A graphical user interface or plotting of signals.
+
+### 3.3 Assumptions
+
+1. The log file is a plain-text CSV file with a header line.
+2. Each data line contains a time stamp in milliseconds, an identifier written
+   in hexadecimal, a data length and eight data bytes written as two
+   hexadecimal digits each.
+3. Time stamps in the file are in increasing order.
+4. Identifiers are 11-bit values. A frame with a data length other than 8 is
+   treated as an error.
+5. Signals are unsigned and little-endian (the lower byte comes first).
+6. The checksum rule is defined for this project: byte 7 must equal the XOR of
+   bytes 0 to 6.
+7. The program is used on a Linux system with gcc, make and Google Test
+   installed.
+
+### 3.4 Constraints
+
+1. The project is an individual project with limited time.
+2. The application is written in C (C99) and built with a Makefile.
+3. The user interface is a command-line (console) menu.
+4. Storage is file-based, with no database.
+5. At most 1000 frames are held in memory, using fixed-size arrays and no
+   dynamic memory allocation.
+6. The signal layout is limited to three fixed messages.
+7. Unit tests are written with Google Test.
