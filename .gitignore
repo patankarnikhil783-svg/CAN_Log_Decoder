@@ -1,0 +1,15 @@
+# Build output
+build/
+*.o
+*.out
+*.exe
+
+# Generated executables
+can_decoder
+
+# Generated and temporary files
+*.log
+core
+
+# Editor and IDE settings
+.vscode/
