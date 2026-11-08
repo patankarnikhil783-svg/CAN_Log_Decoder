@@ -157,3 +157,51 @@ The application will:
    dynamic memory allocation.
 6. The signal layout is limited to three fixed messages.
 7. Unit tests are written with Google Test.
+
+## 4. Requirements
+
+### 4.1 Functional Requirements
+
+| ID | Functional Requirement | Priority | Verification Method |
+|---|---|---|---|
+| FR-01 | The system shall load CAN frames from a CSV log file and report a clear error if the file is missing, unreadable or has no header line. | High | Test / Demonstration |
+| FR-02 | The system shall parse each data line into a frame containing a time stamp, an identifier, a data length and eight data bytes, converting the hexadecimal text into numbers. | High | Unit test |
+| FR-03 | The system shall reject a malformed line, with the line number and the reason, if it has the wrong number of fields or contains a value that is not valid hexadecimal or is out of range. | High | Unit test / Negative test |
+| FR-04 | The system shall check each identifier against the list of known identifiers and count a frame with an unknown identifier as an error. | High | Unit test |
+| FR-05 | The system shall check that the data length of each frame is 8 and count any other length as an error. | High | Unit test |
+| FR-06 | The system shall check that byte 7 equals the XOR of bytes 0 to 6 and count a mismatch as a checksum error. | High | Unit test |
+| FR-07 | The system shall decode the engine data message (0x100): engine speed, coolant temperature and throttle position. | High | Unit test |
+| FR-08 | The system shall decode the vehicle speed message (0x200): vehicle speed, brake state and gear. | High | Unit test |
+| FR-09 | The system shall decode the battery status message (0x300): battery voltage. | High | Unit test |
+| FR-10 | The system shall store up to 1000 processed frames and report an error when this capacity is reached. | Medium | Test |
+| FR-11 | The system shall display a main menu and perform the selected action until the user chooses to exit. | High | Demonstration |
+| FR-12 | The system shall validate menu choices, file names and bytes entered by the user, and ask again after displaying a message when the input is invalid. | High | Negative test / Demonstration |
+| FR-13 | The system shall display each processed frame with its decoded signals, or with the error found. | High | Demonstration |
+| FR-14 | The system shall display statistics for each identifier: frames received, valid frames and error frames. | Medium | Demonstration |
+| FR-15 | The system shall display the stored frames of one identifier chosen by the user. | Medium | Demonstration |
+| FR-16 | The system shall display the stored error frames together with the type of each error. | Medium | Demonstration |
+| FR-17 | The system shall validate and decode a single frame entered by the user and display the result. | Medium | Demonstration |
+| FR-18 | The system shall display a summary report with the number of lines read, frames decoded, lines rejected, checksum errors, length errors and unknown identifiers. | High | Demonstration |
+
+### 4.2 Non-Functional Requirements
+
+| ID | Non-Functional Requirement | Verification Method |
+|---|---|---|
+| NFR-01 | The source code shall compile without warnings. | Build output |
+| NFR-02 | The project shall use a modular multi-file structure. | Code review |
+| NFR-03 | The application shall handle invalid input without crashing. | Negative testing |
+| NFR-04 | Important functions shall be tested using gTest. | Unit-test output |
+| NFR-05 | The project shall build using a Makefile. | Build demonstration |
+| NFR-06 | The project shall be maintained in a GitHub repository. | Repository review |
+| NFR-07 | The identifiers, signal positions, scale factors and offsets shall be defined in one place so they can be changed without editing the decoding logic. | Code review |
+| NFR-08 | Parsing, validation and decoding functions shall not perform file or console input and output, so that they can be unit tested. | Code review |
+| NFR-09 | The program shall use fixed-size arrays and shall not use dynamic memory allocation. | Code review |
+| NFR-10 | All bit shifts and masks shall be performed on unsigned types. | Code review |
+| NFR-11 | User input shall be read with bounded buffers and safe functions only. | Code review |
+| NFR-12 | The code shall follow one consistent naming style and comment standard. | Code review |
+| NFR-13 | The program shall process 1000 frames in less than one second. | Demonstration |
+
+### 4.3 Requirement Traceability
+
+This table links each requirement to its module, function and test. It will be
+completed after the detailed design and the unit-test plan are prepared.
