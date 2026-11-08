@@ -260,3 +260,39 @@ be changed without editing the decoding logic.
    of one frame, and the program validates and decodes it.
 10. After each action, the program returns to the menu.
 11. **Exit:** the program closes any open file and ends.
+
+## 6. Initial Modules and Planned C Concepts
+
+### 6.1 Initial Modules
+
+| Module | Source File | Header File | Responsibility |
+|---|---|---|---|
+| Main application | main.c | Not applicable | Controls the high-level application flow: shows the menu, calls the selected action and ends the program |
+| Menu | menu.c | menu.h | Displays the menu, reads user input safely and validates menu choices, file names and entered bytes |
+| File handler | file_handler.c | file_handler.h | The only module that opens, reads and closes files: reads the CSV log one line at a time |
+| Parser | parser.c | parser.h | Converts one CSV text line into a frame, turning hexadecimal text into numbers |
+| Validation | validation.c | validation.h | Checks the identifier, the data length and the checksum of a frame |
+| Decoder | decoder.c | decoder.h | Extracts signals from the data bytes using shifts, masks and scale factors, and holds the table of known messages and signals |
+| Frame store | frame_store.c | frame_store.h | Keeps up to 1000 processed frames in memory and returns them, optionally filtered by identifier or by error type |
+| Report | report.c | report.h | Formats and prints decoded frames, statistics, error frames and the summary |
+| Shared types | Not applicable | types.h | Declares the shared structures, enumerations, status codes and constants |
+
+### 6.2 Planned C Concepts
+
+| C Concept | Where It Will Be Used | Why It Is Needed |
+|---|---|---|
+| Bit manipulation (shifts, masks, OR, XOR) | Decoder and validation | Combines two bytes into one 16-bit value, extracts single bits and groups of bits from a byte, and computes the XOR checksum. This is how real CAN signals are packed into data bytes |
+| Fixed-width unsigned integer types (`stdint.h`) | Frame bytes, identifiers, raw signal values | Makes the size of each value explicit, and unsigned types make shifts and masks well defined |
+| Structures (`struct`, `typedef`) | Frame, decoded signals, signal definition, statistics, stored frame | Groups related values, for example an identifier, length and eight data bytes, into one meaningful unit |
+| Enumerations (`enum`) | Error types, status codes, menu choices | Gives fixed categories readable names instead of unexplained numbers |
+| Arrays | Eight data bytes of a frame, the 1000-frame store, the table of signals, text buffers | Provides fixed-size storage without dynamic memory allocation |
+| Constant lookup table (array of structures) | Decoder | Keeps the identifiers, bit positions, scale factors and offsets in one place, so signals can be changed without editing the logic |
+| Pointers and `const` pointers | Passing frames to functions, returning results through output parameters | Avoids copying data and shows which parameters a function may not change |
+| Functions with return values | Every module | Keeps the program modular, and status codes let the caller detect and handle errors |
+| Multiple source and header files, include guards | All modules | Separates responsibilities, allows separate compilation and allows unit tests to call the C functions |
+| File handling (`fopen`, `fgets`, `fclose`) | File handler | Reads the log file line by line, with every call checked for failure |
+| String handling and conversion (`strtoul`, `strtol`, `strchr`) | Parser and menu | Converts hexadecimal and decimal text to numbers and detects invalid input, which avoids unsafe input functions |
+| Floating-point arithmetic | Decoder | Applies scale factors and offsets to raw values to obtain physical values such as rpm and degrees Celsius |
+| Preprocessor constants and macros | Maximum frames, data length, buffer sizes | Avoids magic numbers and keeps limits in one place |
+| Loops, conditions and `switch` | Menu loop, file processing loop, selection of the message to decode | Controls repetition and decisions throughout the program |
+| `static` functions and file scope | Internal helper functions in each module | Keeps internal details hidden so that only the public functions are visible |
