@@ -361,3 +361,303 @@ physical value = raw value * factor + offset
 6. **Signals are described by data, not by code.** The decoder uses one generic
    bit-extraction routine and the signal table, so adding a signal means adding
    a table row.
+
+---
+
+## 2. Module Design
+
+### 2.1 Module Summary
+
+| Module Name | Source File | Header File | Responsibility |
+|---|---|---|---|
+| Main application | main.c | Not applicable | Controls the high-level application flow: runs the menu loop and calls the module that performs each choice |
+| Menu | menu.c | menu.h | Displays the menu, reads and validates user input |
+| File handler | file_handler.c | file_handler.h | The only module that opens, reads and closes files |
+| Parser | parser.c | parser.h | Converts text to numbers and one CSV line into a frame |
+| Validation | validation.c | validation.h | Checks the identifier, the data length and the checksum of a frame |
+| Decoder | decoder.c | decoder.h | Owns the signal table, extracts bit fields and converts raw values into physical values |
+| Frame store | frame_store.c | frame_store.h | Keeps processed frames in memory and finds frames by identifier or by error |
+| Report | report.c | report.h | Prints decoded frames, statistics, frame lists and the summary |
+| Shared types | Not applicable | types.h | Declares the shared constants, enumerations and structures (see section 1) |
+
+### 2.2 Module Dependencies
+
+![Module Dependencies](module_dependencies.png)
+
+An arrow means "uses functions of". The rules that the design follows are:
+
+1. **No circular dependencies.** The arrows only point downwards.
+2. **Only `file_handler.c` opens, reads or closes files.**
+3. **Only `menu.c` reads from the keyboard.** It also prints the menu and the
+   prompts. `report.c` prints all results.
+4. **`parser.c`, `validation.c`, `decoder.c` and `frame_store.c` perform no
+   input or output**, so they can be unit tested directly.
+5. **`main.c` contains no parsing, validation or decoding logic.** It only
+   calls the other modules.
+6. Every module includes `types.h`.
+
+### 2.3 Detailed Module Description
+
+#### Module: Main application
+
+**Source file:** `main.c`
+
+**Header file:** Not applicable
+
+**Purpose:** starts the program and controls the flow from start to exit.
+
+**Responsibilities:**
+- Create the frame store, the summary counters and the file name buffer.
+- Repeat: ask the menu for a choice and call the matching handler function.
+- Handle each choice in a short `static` function that only calls other
+  modules: `handleLoadFile`, `handleDecode`, `handleStatistics`,
+  `handleFramesById`, `handleErrorFrames` and `handleSingleFrame`.
+- Refuse an action that needs data when no file is loaded or no frames are
+  stored, and tell the user what to do first.
+- Print the text of any error returned by a module.
+
+**Public functions:**
+- `int main(void)`
+
+**Data used or owned:** the `FrameStore_t`, the `Summary_t`, the file name
+buffer and a flag that records whether a file has been loaded.
+
+**Dependencies:** `menu`, `file_handler`, `parser`, `validation`, `decoder`,
+`frame_store`, `report`.
+
+**Possible errors:** any `Status_t` value returned by a module, reported to the
+user with `statusToText`. No file loaded and empty store are handled by `main.c`
+itself with a message.
+
+#### Module: Menu
+
+**Source file:** `menu.c`
+
+**Header file:** `menu.h`
+
+**Purpose:** all keyboard interaction.
+
+**Responsibilities:**
+- Print the menu and read one line of input with `fgets` into a bounded buffer.
+- Convert the text into a menu choice and reject anything that is not a whole
+  number from 0 to 6.
+- Read and validate a file name, a hexadecimal identifier and the data of one
+  frame (identifier, length and eight bytes).
+- Discard the rest of an over-long input line.
+- Treat the end of input (for example Ctrl+D) as the exit choice, so the menu
+  loop can never repeat forever.
+
+**Public functions:**
+- `MenuChoice_t parseMenuChoice(const char *text)`
+- `MenuChoice_t readMenuChoice(void)`
+- `Status_t readFileName(char *buffer, size_t size)`
+- `Status_t readIdentifier(uint16_t *id)`
+- `Status_t readFrameFromUser(CanFrame_t *frame)`
+
+**Data used or owned:** a local input line buffer. `parseMenuChoice` is a pure
+function with no input or output, so it is unit tested.
+
+**Dependencies:** `parser` (number conversion), `report` (`statusToText`),
+`types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_INVALID_ARGUMENT`
+(empty input), `STATUS_ERR_LINE_TOO_LONG`, `STATUS_ERR_INVALID_HEX`,
+`STATUS_ERR_OUT_OF_RANGE`, `STATUS_END_OF_FILE` (input closed).
+
+#### Module: File handler
+
+**Source file:** `file_handler.c`
+
+**Header file:** `file_handler.h`
+
+**Purpose:** the only place where files are opened, read and closed.
+
+**Responsibilities:**
+- Open the log file and check that it has a header line, which it consumes.
+- Read one line at a time into a bounded buffer and remove the line ending.
+- Report an over-long line and skip the rest of it.
+- Close the file safely, also when the pointer is NULL.
+
+**Public functions:**
+- `Status_t openLogFile(const char *fileName, FILE **file)`
+- `Status_t readLogLine(FILE *file, char *buffer, size_t size)`
+- `void closeLogFile(FILE *file)`
+
+**Data used or owned:** none. The `FILE` pointer belongs to the caller.
+
+**Dependencies:** `types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_INVALID_ARGUMENT`,
+`STATUS_ERR_FILE_OPEN`, `STATUS_ERR_FILE_EMPTY`, `STATUS_ERR_LINE_TOO_LONG`,
+`STATUS_END_OF_FILE`.
+
+#### Module: Parser
+
+**Source file:** `parser.c`
+
+**Header file:** `parser.h`
+
+**Purpose:** turns text into numbers and a CSV line into a frame.
+
+**Responsibilities:**
+- Convert decimal text and hexadecimal text (with an optional `0x` prefix) to an
+  unsigned number, rejecting empty text, stray characters, a sign and values
+  above a given maximum.
+- Split a data line into exactly 11 fields and fill a frame.
+- Recognise a blank line.
+
+**Public functions:**
+- `Status_t parseDecimalValue(const char *text, uint32_t maxValue, uint32_t *value)`
+- `Status_t parseHexValue(const char *text, uint32_t maxValue, uint32_t *value)`
+- `Status_t parseFrameLine(const char *line, CanFrame_t *frame)`
+- `int isBlankLine(const char *line)`
+
+**Data used or owned:** none. No input or output.
+
+**Dependencies:** `types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_FIELD_COUNT`,
+`STATUS_ERR_INVALID_HEX`, `STATUS_ERR_OUT_OF_RANGE`.
+
+#### Module: Validation
+
+**Source file:** `validation.c`
+
+**Header file:** `validation.h`
+
+**Purpose:** decides whether a parsed frame is acceptable.
+
+**Responsibilities:**
+- Calculate the checksum, which is the XOR of data bytes 0 to 6.
+- Check a frame in a fixed order: known identifier, then data length of 8, then
+  checksum. Return the first check that fails.
+
+**Public functions:**
+- `Status_t calculateChecksum(const uint8_t *data, uint8_t *checksum)`
+- `Status_t validateFrame(const CanFrame_t *frame)`
+
+**Data used or owned:** none. No input or output.
+
+**Dependencies:** `decoder` (`findMessageDefinition`, to ask whether an identifier
+is known), `types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_UNKNOWN_ID`,
+`STATUS_ERR_BAD_LENGTH`, `STATUS_ERR_BAD_CHECKSUM`.
+
+#### Module: Decoder
+
+**Source file:** `decoder.c`
+
+**Header file:** `decoder.h`
+
+**Purpose:** turns the data bytes of a valid frame into physical values.
+
+**Responsibilities:**
+- Own the constant table of known messages and signals (section 1.4).
+- Look up the definition of a message by identifier.
+- Extract a field of 1 to 32 bits from the data bytes with shifts and masks.
+- Apply the factor and the offset to a raw value.
+- Decode every signal of a frame.
+
+**Public functions:**
+- `const MessageDefinition_t *findMessageDefinition(uint16_t id)`
+- `Status_t extractBits(const uint8_t *data, uint8_t startBit, uint8_t bitLength, uint32_t *raw)`
+- `float convertRawValue(uint32_t raw, float factor, float offset)`
+- `Status_t decodeFrame(const CanFrame_t *frame, DecodedValues_t *decoded)`
+
+**Data used or owned:** the constant signal table (an array of
+`MessageDefinition_t`), which is the only place that holds identifiers, bit
+positions, factors and offsets.
+
+**Dependencies:** `types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_INVALID_ARGUMENT`
+(bit field outside the 64 data bits), `STATUS_ERR_UNKNOWN_ID`.
+
+#### Module: Frame store
+
+**Source file:** `frame_store.c`
+
+**Header file:** `frame_store.h`
+
+**Purpose:** keeps the processed frames and answers questions about them.
+
+**Responsibilities:**
+- Start with an empty store and add frames until it holds 1000.
+- Return a stored frame by index, and the number of frames stored.
+- Calculate the statistics of one identifier: frames received, valid and in
+  error. The statistics report uses it for each known identifier, and counts
+  the frames with an unknown identifier separately.
+- Find the indices of all frames with a given identifier.
+- Find the indices of all frames that failed a check.
+
+**Public functions:**
+- `Status_t initFrameStore(FrameStore_t *store)`
+- `Status_t addFrame(FrameStore_t *store, const StoredFrame_t *item)`
+- `const StoredFrame_t *getFrame(const FrameStore_t *store, uint16_t index)`
+- `uint16_t getFrameCount(const FrameStore_t *store)`
+- `Status_t computeIdStatistics(const FrameStore_t *store, uint16_t id, IdStatistics_t *stats)`
+- `Status_t findFramesById(const FrameStore_t *store, uint16_t id, uint16_t *indices, uint16_t maxIndices, uint16_t *count)`
+- `Status_t findErrorFrames(const FrameStore_t *store, uint16_t *indices, uint16_t maxIndices, uint16_t *count)`
+
+**Data used or owned:** none. The `FrameStore_t` belongs to the caller and is
+passed by pointer. `getFrame` returns NULL for an invalid index.
+
+**Dependencies:** `types`.
+
+**Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_INVALID_ARGUMENT`,
+`STATUS_ERR_STORE_FULL`.
+
+#### Module: Report
+
+**Source file:** `report.c`
+
+**Header file:** `report.h`
+
+**Purpose:** all output of results.
+
+**Responsibilities:**
+- Print a processed frame: the decoded signals with their names and units, or
+  the error found.
+- Print a rejected line with its line number and the reason.
+- Print a list of stored frames chosen by index.
+- Print the statistics for each known identifier and the count of unknown
+  identifiers.
+- Print the summary report.
+- Convert a `Status_t` into readable text.
+- Write to the stream it is given, so output can be redirected.
+
+**Public functions:**
+- `const char *statusToText(Status_t status)`
+- `void printFrameResult(FILE *out, const StoredFrame_t *item)`
+- `void printRejectedLine(FILE *out, uint32_t lineNumber, Status_t status)`
+- `void printFrameList(FILE *out, const FrameStore_t *store, const uint16_t *indices, uint16_t count)`
+- `void printStatistics(FILE *out, const FrameStore_t *store)`
+- `void printSummary(FILE *out, const Summary_t *summary)`
+
+**Data used or owned:** none.
+
+**Dependencies:** `frame_store` (statistics), `decoder` (signal names and units),
+`types`.
+
+**Possible errors:** a NULL pointer argument produces no output. `statusToText`
+returns `"Unknown status"` for a value it does not know.
+
+#### Module: Shared types
+
+**Header file:** `types.h`
+
+**Purpose:** the constants, enumerations and structures shared by all modules,
+as defined in section 1. It contains no executable code.
+
+### 2.4 Design Notes
+
+1. **Public headers were checked.** All function prototypes in this section were
+   compiled as C99 and as C++17 with every warning enabled, so the C code and
+   the C++ gTest files can use them.
+2. **Why `main.c` has handler functions.** Each is a few lines that call other
+   modules. This keeps the menu loop readable while `main.c` contains no
+   decoding logic.
+3. **Statistics.** FR-14 asks for statistics for each identifier. The design
+   reports the three known identifiers and one line for all frames with an
+   unknown identifier, so the number of lines is fixed.
