@@ -661,3 +661,595 @@ as defined in section 1. It contains no executable code.
 3. **Statistics.** FR-14 asks for statistics for each identifier. The design
    reports the three known identifiers and one line for all frames with an
    unknown identifier, so the number of lines is fixed.
+
+---
+
+## 3. Function Design
+
+This section specifies every important function. Each specification gives the
+prototype, the parameters, the return values, the conditions before and after the
+call, the errors handled, the related requirements and the planned unit tests
+(`UT-xx`, listed in section 9). The remaining public functions are summarised in
+section 3.13.
+
+**Conventions.** A function that can fail returns `Status_t` and passes its
+result through an output parameter. A function never writes to its output
+parameter when it returns an error, unless stated. Every pointer parameter is
+checked for NULL before it is used.
+
+### 3.1 Function: parseHexValue
+
+**Module:** Parser
+
+**Prototype:**
+```c
+Status_t parseHexValue(const char *text, uint32_t maxValue, uint32_t *value);
+```
+
+**Purpose:** converts hexadecimal text, with an optional `0x` or `0X` prefix, into
+an unsigned number.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `text` | `const char *` | Input | Text to convert | Non-NULL, NUL-terminated |
+| `maxValue` | `uint32_t` | Input | Largest accepted value | Any |
+| `value` | `uint32_t *` | Output | The converted number | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | The text was converted and `*value` is set |
+| `STATUS_ERR_NULL_POINTER` | `text` or `value` is NULL |
+| `STATUS_ERR_INVALID_HEX` | The text is empty, has only a prefix, or contains a character that is not a hexadecimal digit (including spaces and signs) |
+| `STATUS_ERR_OUT_OF_RANGE` | The number is larger than `maxValue` or does not fit in 32 bits |
+
+**Preconditions:**
+- `text` points to a NUL-terminated string.
+- `value` points to a writable `uint32_t`.
+
+**Postconditions:**
+- `*value` is changed only when `STATUS_SUCCESS` is returned.
+- `text` is not modified.
+
+**Errors handled:** NULL pointers, empty text, non-hexadecimal characters,
+values above the maximum.
+
+**Related requirements:** FR-02, FR-03, FR-12
+
+**Planned unit tests:** UT-01, UT-02, UT-03, UT-04, UT-05, UT-06, UT-07
+
+### 3.2 Function: parseFrameLine
+
+**Module:** Parser
+
+**Prototype:**
+```c
+Status_t parseFrameLine(const char *line, CanFrame_t *frame);
+```
+
+**Purpose:** splits one data line of the log into its 11 comma-separated fields
+and fills a frame.
+
+**Field order and rules:**
+
+| Field | Content | Rule |
+|---|---|---|
+| 1 | time stamp (ms) | Decimal digits, up to 4294967295 |
+| 2 | identifier | Hexadecimal, optional `0x` prefix, up to 0x7FF |
+| 3 | data length | Decimal digits, up to 8 |
+| 4 to 11 | data bytes 0 to 7 | Hexadecimal, up to 0xFF, no prefix |
+
+A trailing carriage return or line feed is ignored. Spaces around fields are not
+accepted.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `line` | `const char *` | Input | One line of text | Non-NULL, NUL-terminated |
+| `frame` | `CanFrame_t *` | Output | The parsed frame | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | The line was parsed and `*frame` is set |
+| `STATUS_ERR_NULL_POINTER` | `line` or `frame` is NULL |
+| `STATUS_ERR_FIELD_COUNT` | The line does not have exactly 11 fields (this includes a blank line) |
+| `STATUS_ERR_INVALID_HEX` | A field is empty or is not a valid number |
+| `STATUS_ERR_OUT_OF_RANGE` | The identifier is above 0x7FF, the data length above 8, or a byte above 0xFF |
+
+**Preconditions:**
+- `line` is NUL-terminated and shorter than `MAX_LINE_LENGTH`.
+- `frame` points to a writable `CanFrame_t`.
+
+**Postconditions:**
+- `*frame` is written only when `STATUS_SUCCESS` is returned.
+- `line` is not modified.
+
+**Errors handled:** NULL pointers, too few or too many fields, empty fields,
+non-numeric text, out-of-range values.
+
+**Related requirements:** FR-02, FR-03
+
+**Planned unit tests:** UT-11, UT-12, UT-13, UT-14, UT-15, UT-16, UT-17, UT-18, UT-19
+
+### 3.3 Function: calculateChecksum
+
+**Module:** Validation
+
+**Prototype:**
+```c
+Status_t calculateChecksum(const uint8_t *data, uint8_t *checksum);
+```
+
+**Purpose:** calculates the checksum of a frame, which is the XOR of data
+bytes 0 to 6.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `data` | `const uint8_t *` | Input | The data bytes of a frame | Non-NULL, at least 8 bytes readable (only the first 7 are used) |
+| `checksum` | `uint8_t *` | Output | The calculated checksum | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | `*checksum` holds the XOR of bytes 0 to 6 |
+| `STATUS_ERR_NULL_POINTER` | `data` or `checksum` is NULL |
+
+**Preconditions:** `data` points to an array of `DATA_BYTES` bytes.
+
+**Postconditions:** `*checksum = data[0] ^ data[1] ^ ... ^ data[6]`. Byte 7 is not
+read.
+
+**Errors handled:** NULL pointers.
+
+**Related requirements:** FR-06
+
+**Planned unit tests:** UT-21, UT-22, UT-23
+
+### 3.4 Function: validateFrame
+
+**Module:** Validation
+
+**Prototype:**
+```c
+Status_t validateFrame(const CanFrame_t *frame);
+```
+
+**Purpose:** decides whether a parsed frame is acceptable, checking in a fixed
+order and returning the first check that fails.
+
+**Algorithm:**
+1. If `findMessageDefinition(frame->id)` returns NULL, return `STATUS_ERR_UNKNOWN_ID`.
+2. If `frame->dlc` is not `DATA_BYTES`, return `STATUS_ERR_BAD_LENGTH`.
+3. Calculate the checksum. If it differs from `frame->data[CHECKSUM_INDEX]`,
+   return `STATUS_ERR_BAD_CHECKSUM`.
+4. Otherwise return `STATUS_SUCCESS`.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `frame` | `const CanFrame_t *` | Input | The frame to check | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | The frame passed every check |
+| `STATUS_ERR_NULL_POINTER` | `frame` is NULL |
+| `STATUS_ERR_UNKNOWN_ID` | The identifier is not in the signal table |
+| `STATUS_ERR_BAD_LENGTH` | The data length is not 8 |
+| `STATUS_ERR_BAD_CHECKSUM` | Byte 7 is not the XOR of bytes 0 to 6 |
+
+**Preconditions:** `frame` was filled by `parseFrameLine` or by the menu.
+
+**Postconditions:** the frame is not modified.
+
+**Errors handled:** NULL pointer, unknown identifier, wrong length, wrong
+checksum.
+
+**Related requirements:** FR-04, FR-05, FR-06
+
+**Planned unit tests:** UT-24, UT-25, UT-26, UT-27, UT-28, UT-29
+
+### 3.5 Function: extractBits
+
+**Module:** Decoder
+
+**Prototype:**
+```c
+Status_t extractBits(const uint8_t *data, uint8_t startBit,
+                     uint8_t bitLength, uint32_t *raw);
+```
+
+**Purpose:** returns the unsigned value of `bitLength` bits that start at
+`startBit` in the data bytes. This is the bit-manipulation core of the project.
+
+**Algorithm:**
+1. Check the pointers, that `bitLength` is from 1 to 32 and that
+   `startBit + bitLength` is at most 64.
+2. Build a 64-bit value with `data[0]` as the lowest byte:
+   `value = data[0] | (data[1] << 8) | ... | (data[7] << 56)`, using a 64-bit
+   unsigned type.
+3. Shift the value right by `startBit` so the wanted bits start at bit 0.
+4. Keep only the lowest `bitLength` bits with the mask `(1 << bitLength) - 1`.
+
+**Worked examples:**
+
+| Data bytes | Start bit | Length | Steps | Result |
+|---|---|---|---|---|
+| `1A 2C 78 80 ...` | 0 | 16 | bytes 0 and 1: `0x1A` OR `(0x2C << 8)` | `0x2C1A` = 11290 |
+| `1A 2C 78 80 ...` | 16 | 8 | shift right by 16, mask `0xFF` | `0x78` = 120 |
+| `E8 03 03 00 ...` | 16 | 1 | shift right by 16 gives `0x03`, mask `0x1` | 1 |
+| `E8 03 03 00 ...` | 17 | 3 | shift right by 17 gives `0x01`, mask `0x7` | 1 |
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `data` | `const uint8_t *` | Input | The 8 data bytes | Non-NULL |
+| `startBit` | `uint8_t` | Input | Position of the lowest bit of the field | 0 to 63 |
+| `bitLength` | `uint8_t` | Input | Number of bits in the field | 1 to 32, and `startBit + bitLength <= 64` |
+| `raw` | `uint32_t *` | Output | The extracted value | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | `*raw` holds the extracted value |
+| `STATUS_ERR_NULL_POINTER` | `data` or `raw` is NULL |
+| `STATUS_ERR_INVALID_ARGUMENT` | `bitLength` is 0 or above 32, or the field extends beyond bit 63 |
+
+**Preconditions:** `data` points to `DATA_BYTES` readable bytes.
+
+**Postconditions:** on success `*raw` is at most `(1 << bitLength) - 1`. On error
+`*raw` is unchanged. All shifts and masks use unsigned types (NFR-10).
+
+**Errors handled:** NULL pointers, zero or excessive length, a field that does
+not fit in the 64 data bits.
+
+**Related requirements:** FR-07, FR-08, FR-09, NFR-10
+
+**Planned unit tests:** UT-30, UT-31, UT-32, UT-33, UT-34, UT-35, UT-36
+
+### 3.6 Function: convertRawValue
+
+**Module:** Decoder
+
+**Prototype:**
+```c
+float convertRawValue(uint32_t raw, float factor, float offset);
+```
+
+**Purpose:** converts a raw signal value into a physical value:
+`raw * factor + offset`.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `raw` | `uint32_t` | Input | Raw unsigned value | Any |
+| `factor` | `float` | Input | Multiplier | Any finite number |
+| `offset` | `float` | Input | Added after multiplying | Any finite number |
+
+**Return type:** `float`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `raw * factor + offset` | The physical value. The function has no error case |
+
+**Preconditions:** none.
+
+**Postconditions:** no state is changed.
+
+**Errors handled:** none. The inputs come from the constant signal table.
+
+**Related requirements:** FR-07, FR-08, FR-09
+
+**Planned unit tests:** UT-37, UT-38
+
+### 3.7 Function: decodeFrame
+
+**Module:** Decoder
+
+**Prototype:**
+```c
+Status_t decodeFrame(const CanFrame_t *frame, DecodedValues_t *decoded);
+```
+
+**Purpose:** decodes every signal of a frame using the signal table.
+
+**Algorithm:**
+1. Look up the message definition for `frame->id`. If there is none, return
+   `STATUS_ERR_UNKNOWN_ID`.
+2. For each signal of the message, call `extractBits` with the signal's start bit
+   and length, then `convertRawValue` with its factor and offset, and store the
+   result in `decoded->values`.
+3. Set `decoded->count` to the number of signals.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `frame` | `const CanFrame_t *` | Input | A frame that has passed `validateFrame` | Non-NULL |
+| `decoded` | `DecodedValues_t *` | Output | The decoded values | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | `decoded` holds the values of all signals |
+| `STATUS_ERR_NULL_POINTER` | `frame` or `decoded` is NULL |
+| `STATUS_ERR_UNKNOWN_ID` | The identifier is not in the signal table |
+| `STATUS_ERR_INVALID_ARGUMENT` | A signal in the table does not fit in the data bytes |
+
+**Preconditions:** the caller has validated the frame. `decodeFrame` does not
+check the length or the checksum.
+
+**Postconditions:** on any error, `decoded->count` is set to 0 when `decoded` is
+not NULL.
+
+**Errors handled:** NULL pointers, unknown identifier, a bad table entry.
+
+**Related requirements:** FR-07, FR-08, FR-09
+
+**Planned unit tests:** UT-39, UT-40, UT-41, UT-42, UT-43
+
+### 3.8 Function: addFrame
+
+**Module:** Frame store
+
+**Prototype:**
+```c
+Status_t addFrame(FrameStore_t *store, const StoredFrame_t *item);
+```
+
+**Purpose:** appends a processed frame to the store.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `store` | `FrameStore_t *` | Input-Output | The store | Non-NULL, initialised |
+| `item` | `const StoredFrame_t *` | Input | The frame to copy into the store | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | The frame was added and `store->count` increased by 1 |
+| `STATUS_ERR_NULL_POINTER` | `store` or `item` is NULL |
+| `STATUS_ERR_STORE_FULL` | The store already holds `MAX_FRAMES` frames |
+
+**Preconditions:** `initFrameStore` has been called for `store`.
+
+**Postconditions:** on success the frame is copied to `items[count - 1]`. On any
+error the store is unchanged.
+
+**Errors handled:** NULL pointers, full store.
+
+**Related requirements:** FR-10
+
+**Planned unit tests:** UT-45, UT-46, UT-47, UT-53
+
+### 3.9 Function: computeIdStatistics
+
+**Module:** Frame store
+
+**Prototype:**
+```c
+Status_t computeIdStatistics(const FrameStore_t *store, uint16_t id,
+                             IdStatistics_t *stats);
+```
+
+**Purpose:** counts the stored frames of one identifier, and how many of them are
+valid or in error.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `store` | `const FrameStore_t *` | Input | The store | Non-NULL |
+| `id` | `uint16_t` | Input | The identifier to count | 0 to 0x7FF |
+| `stats` | `IdStatistics_t *` | Output | The counts | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | `*stats` is filled. If no frame has this identifier, all counts are 0 |
+| `STATUS_ERR_NULL_POINTER` | `store` or `stats` is NULL |
+
+**Preconditions:** the store has been initialised.
+
+**Postconditions:** `stats->id == id`, `stats->valid` is the number of matching
+frames with status `STATUS_SUCCESS`, and `stats->errors = stats->received -
+stats->valid`.
+
+**Errors handled:** NULL pointers.
+
+**Related requirements:** FR-14
+
+**Planned unit tests:** UT-49, UT-53
+
+### 3.10 Function: findFramesById
+
+**Module:** Frame store
+
+**Prototype:**
+```c
+Status_t findFramesById(const FrameStore_t *store, uint16_t id,
+                        uint16_t *indices, uint16_t maxIndices,
+                        uint16_t *count);
+```
+
+**Purpose:** finds the stored frames with a given identifier and returns their
+indices in storage order.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `store` | `const FrameStore_t *` | Input | The store | Non-NULL |
+| `id` | `uint16_t` | Input | The identifier to find | 0 to 0x7FF |
+| `indices` | `uint16_t *` | Output | Array that receives the indices | Non-NULL, room for `maxIndices` values |
+| `maxIndices` | `uint16_t` | Input | Size of `indices` | 1 or more |
+| `count` | `uint16_t *` | Output | Number of indices written | Non-NULL |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | `*count` indices were written. It is 0 if nothing matched |
+| `STATUS_ERR_NULL_POINTER` | A pointer parameter is NULL |
+| `STATUS_ERR_INVALID_ARGUMENT` | `maxIndices` is 0 |
+
+**Preconditions:** the store has been initialised.
+
+**Postconditions:** `*count` is at most `maxIndices`. If more frames match than
+fit, the first matches are returned. With `maxIndices` equal to `MAX_FRAMES`
+nothing is ever cut off.
+
+**Errors handled:** NULL pointers, a zero-size array.
+
+**Related requirements:** FR-15
+
+**Planned unit tests:** UT-50, UT-51, UT-53
+
+`findErrorFrames` has the same form and returns the indices of the frames whose
+status is not `STATUS_SUCCESS` (FR-16, UT-52).
+
+### 3.11 Function: parseMenuChoice
+
+**Module:** Menu
+
+**Prototype:**
+```c
+MenuChoice_t parseMenuChoice(const char *text);
+```
+
+**Purpose:** converts the text typed at the menu into a menu choice. It is a pure
+function with no input or output.
+
+**Rule:** leading and trailing white space (space, tab, carriage return, line
+feed) is ignored. What remains must be exactly one character from `0` to `6`.
+Anything else is invalid.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `text` | `const char *` | Input | The text typed by the user | May be NULL |
+
+**Return type:** `MenuChoice_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `MENU_EXIT` to `MENU_SINGLE_FRAME` | The choice `0` to `6` |
+| `MENU_INVALID` | NULL, empty, longer than one character after trimming, or not a digit from 0 to 6 |
+
+**Preconditions:** none.
+
+**Postconditions:** no state is changed.
+
+**Errors handled:** NULL, empty text, text such as `7`, `-1`, `abc` or `12`.
+
+**Related requirements:** FR-11, FR-12
+
+**Planned unit tests:** UT-54, UT-55, UT-56, UT-57, UT-58, UT-59
+
+### 3.12 Function: readLogLine
+
+**Module:** File handler
+
+**Prototype:**
+```c
+Status_t readLogLine(FILE *file, char *buffer, size_t size);
+```
+
+**Purpose:** reads the next line of the log into a bounded buffer and removes the
+line ending.
+
+**Parameters:**
+
+| Parameter | C Type | Direction | Description | Valid Values |
+|---|---|---|---|---|
+| `file` | `FILE *` | Input | An open log file | Non-NULL |
+| `buffer` | `char *` | Output | Receives the line | Non-NULL |
+| `size` | `size_t` | Input | Size of `buffer` in bytes | 2 or more |
+
+**Return type:** `Status_t`
+
+**Return values:**
+
+| Return Value | Meaning |
+|---|---|
+| `STATUS_SUCCESS` | A line was read into `buffer`, without `\n` or `\r` |
+| `STATUS_END_OF_FILE` | There are no more lines. This is not an error |
+| `STATUS_ERR_LINE_TOO_LONG` | The line did not fit in `buffer`. The rest of the line was read and discarded |
+| `STATUS_ERR_NULL_POINTER` | `file` or `buffer` is NULL |
+| `STATUS_ERR_INVALID_ARGUMENT` | `size` is less than 2 |
+
+**Preconditions:** the file was opened with `openLogFile`.
+
+**Postconditions:** on success `buffer` is NUL-terminated. A last line without a
+line ending is still returned. The file position is at the start of the next line
+in every case except an error.
+
+**Errors handled:** NULL pointers, an unusable buffer size, over-long lines, end
+of file.
+
+**Related requirements:** FR-01, FR-03
+
+**Planned unit tests:** tested with a small temporary file in the system tests
+(section 9.4) because it uses the file system.
+
+### 3.13 Other Public Functions
+
+| Function | Module | Behaviour | Tests |
+|---|---|---|---|
+| `parseDecimalValue` | Parser | Like `parseHexValue` for decimal digits only. A sign or any other character gives `STATUS_ERR_INVALID_HEX` | UT-08, UT-09, UT-10 |
+| `isBlankLine` | Parser | Returns 1 if the text is empty or only white space, otherwise 0. NULL returns 1 | UT-20 |
+| `findMessageDefinition` | Decoder | Returns the table entry for an identifier, or NULL if it is not known | UT-44 |
+| `initFrameStore` | Frame store | Sets the count to 0 | UT-45 |
+| `getFrame` | Frame store | Returns a pointer to a stored frame, or NULL if the store is NULL or the index is not below the count | UT-48 |
+| `getFrameCount` | Frame store | Returns the number of stored frames, or 0 for NULL | UT-46 |
+| `findErrorFrames` | Frame store | See section 3.10 | UT-52 |
+| `openLogFile` | File handler | Opens the file, reads the header line and returns the open file. Returns `STATUS_ERR_FILE_OPEN` or `STATUS_ERR_FILE_EMPTY` on failure and sets `*file` to NULL | System tests |
+| `closeLogFile` | File handler | Closes the file. Does nothing for NULL | System tests |
+| `readMenuChoice` | Menu | Prints the menu, reads a line and returns `parseMenuChoice` of it. End of input returns `MENU_EXIT` | System tests |
+| `readFileName` | Menu | Prompts for and reads a non-empty file name | System tests |
+| `readIdentifier` | Menu | Prompts for and reads a hexadecimal identifier up to 0x7FF | System tests |
+| `readFrameFromUser` | Menu | Prompts for the identifier, length and eight data bytes and fills a frame | System tests |
+| `statusToText` | Report | Returns readable text for each `Status_t` value, and `"Unknown status"` for others | UT-60 |
+| `printFrameResult`, `printRejectedLine`, `printFrameList`, `printStatistics`, `printSummary` | Report | Format output to the stream given | System tests |
