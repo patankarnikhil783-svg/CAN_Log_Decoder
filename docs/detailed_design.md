@@ -42,6 +42,7 @@ types end in `_t` (`CanFrame_t`), constants and macros use UPPER_CASE
 | `MAX_SIGNALS_PER_MESSAGE` | 3 | Largest number of signals in one message |
 | `MAX_LINE_LENGTH` | 256 | Size of the buffer that holds one line of text |
 | `MAX_FILE_NAME_LENGTH` | 128 | Size of the buffer that holds a file name |
+| `MAX_INPUT_ATTEMPTS` | 3 | Number of times the menu asks again after invalid input |
 | `ID_ENGINE_DATA` | 0x100 | Identifier of the engine data message |
 | `ID_VEHICLE_SPEED` | 0x200 | Identifier of the vehicle speed message |
 | `ID_BATTERY_STATUS` | 0x300 | Identifier of the battery status message |
@@ -62,6 +63,7 @@ typedef enum
     STATUS_ERR_INVALID_ARGUMENT,
     STATUS_ERR_FILE_OPEN,
     STATUS_ERR_FILE_EMPTY,
+    STATUS_ERR_FILE_READ,
     STATUS_ERR_LINE_TOO_LONG,
     STATUS_ERR_FIELD_COUNT,
     STATUS_ERR_INVALID_HEX,
@@ -81,6 +83,7 @@ typedef enum
 | `STATUS_ERR_INVALID_ARGUMENT` | An argument had an unacceptable value, for example an empty file name |
 | `STATUS_ERR_FILE_OPEN` | The file does not exist or cannot be opened |
 | `STATUS_ERR_FILE_EMPTY` | The file has no header line |
+| `STATUS_ERR_FILE_READ` | A read from the file failed |
 | `STATUS_ERR_LINE_TOO_LONG` | A line is longer than `MAX_LINE_LENGTH` |
 | `STATUS_ERR_FIELD_COUNT` | A line does not have exactly `FIELDS_PER_LINE` fields |
 | `STATUS_ERR_INVALID_HEX` | A field is empty or is not valid hexadecimal or decimal text |
@@ -488,7 +491,7 @@ function with no input or output, so it is unit tested.
 **Dependencies:** `types`.
 
 **Possible errors:** `STATUS_ERR_NULL_POINTER`, `STATUS_ERR_INVALID_ARGUMENT`,
-`STATUS_ERR_FILE_OPEN`, `STATUS_ERR_FILE_EMPTY`, `STATUS_ERR_LINE_TOO_LONG`,
+`STATUS_ERR_FILE_OPEN`, `STATUS_ERR_FILE_EMPTY`, `STATUS_ERR_FILE_READ`, `STATUS_ERR_LINE_TOO_LONG`,
 `STATUS_END_OF_FILE`.
 
 #### Module: Parser
@@ -1219,6 +1222,7 @@ line ending.
 | `STATUS_ERR_LINE_TOO_LONG` | The line did not fit in `buffer`. The rest of the line was read and discarded |
 | `STATUS_ERR_NULL_POINTER` | `file` or `buffer` is NULL |
 | `STATUS_ERR_INVALID_ARGUMENT` | `size` is less than 2 |
+| `STATUS_ERR_FILE_READ` | The read failed (a file system error, not the end of the file) |
 
 **Preconditions:** the file was opened with `openLogFile`.
 
@@ -1245,7 +1249,7 @@ of file.
 | `getFrame` | Frame store | Returns a pointer to a stored frame, or NULL if the store is NULL or the index is not below the count | UT-48 |
 | `getFrameCount` | Frame store | Returns the number of stored frames, or 0 for NULL | UT-46 |
 | `findErrorFrames` | Frame store | See section 3.10 | UT-52 |
-| `openLogFile` | File handler | Opens the file, reads the header line and returns the open file. Returns `STATUS_ERR_FILE_OPEN` or `STATUS_ERR_FILE_EMPTY` on failure and sets `*file` to NULL | System tests |
+| `openLogFile` | File handler | Opens the file, reads the header line and returns the open file. Returns `STATUS_ERR_FILE_OPEN`, `STATUS_ERR_FILE_EMPTY` or `STATUS_ERR_FILE_READ` on failure and sets `*file` to NULL | System tests |
 | `closeLogFile` | File handler | Closes the file. Does nothing for NULL | System tests |
 | `readMenuChoice` | Menu | Prints the menu, reads a line and returns `parseMenuChoice` of it. End of input returns `MENU_EXIT` | System tests |
 | `readFileName` | Menu | Prompts for and reads a non-empty file name | System tests |
@@ -1253,3 +1257,193 @@ of file.
 | `readFrameFromUser` | Menu | Prompts for the identifier, length and eight data bytes and fills a frame | System tests |
 | `statusToText` | Report | Returns readable text for each `Status_t` value, and `"Unknown status"` for others | UT-60 |
 | `printFrameResult`, `printRejectedLine`, `printFrameList`, `printStatistics`, `printSummary` | Report | Format output to the stream given | System tests |
+
+---
+
+## 4. Input-Validation Plan
+
+### 4.1 Validation Rules
+
+| Input | Source | Validation Rule | Invalid Example | Expected Error Behaviour |
+|---|---|---|---|---|
+| Menu choice | User | After removing white space, exactly one character from `0` to `6` | `7`, `-1`, `abc`, `12`, empty line | Message "Invalid choice. Enter a number from 0 to 6." and the menu is shown again |
+| Over-long menu input | User | At most 15 characters | A 40-character line | The rest of the line is discarded and the input is treated as an invalid choice |
+| End of input | User | The input stream is still open | Ctrl+D pressed | Treated as the exit choice, so the program ends normally |
+| File name | User | 1 to 127 characters, not empty after trimming, and the file can be opened | Empty line, a 200-character name, `missing.csv` | Message, the user is asked again (up to 3 attempts), then back to the menu. No file is marked as loaded |
+| Action without a file | User action | A file must be loaded before decoding | Choice 2 before choice 1 | Message "No file loaded. Choose 1 first." |
+| Action without frames | User action | Frames must be stored before statistics or listings | Choice 3, 4 or 5 before choice 2 | Message "No frames stored. Choose 2 first." |
+| Identifier to filter | User | Hexadecimal, optional `0x` prefix, at most 0x7FF | `XYZ`, `800`, empty line | Message, the user is asked again (up to 3 attempts), then back to the menu |
+| Typed frame: identifier | User | Hexadecimal, at most 0x7FF | `0x800` | Same as above |
+| Typed frame: data length | User | Decimal digits, 0 to 8 | `9`, `-1`, `eight` | Same as above |
+| Typed frame: data byte | User | One or two hexadecimal digits, at most FF | `ZZ`, `100` | Same as above |
+| Line length | Log file | At most 255 characters | A 300-character line | `Line N rejected: Line is too long`. The rest of the line is skipped and reading continues |
+| Field count | Log file | Exactly 11 comma-separated fields | `1000,0x100,8,1A` | `Line N rejected: Wrong number of fields (expected 11)`. Reading continues |
+| Time stamp | Log file | Decimal digits only | `10s0`, `-5`, empty field | `Line N rejected: Invalid number` |
+| Identifier | Log file | Hexadecimal, at most 0x7FF | `0x800`, `G12` | `Line N rejected: Value out of range` or `Invalid number` |
+| Data length | Log file | Decimal, 0 to 8 | `9` | `Line N rejected: Value out of range` |
+| Data byte | Log file | Hexadecimal, 1 or 2 digits | `ZZ`, `100` | `Line N rejected: Invalid number` or `Value out of range` |
+| Known identifier | Log file | One of 0x100, 0x200, 0x300 | `0x7FF` | The frame is stored with the error `Unknown identifier` and counted |
+| Data length equals 8 | Log file | `dlc == 8` | `7` | The frame is stored with the error `Data length is not 8` and counted |
+| Checksum | Log file | Byte 7 equals the XOR of bytes 0 to 6 | Wrong byte 7 | The frame is stored with the error `Checksum mismatch` and counted |
+| Store capacity | Log file | Fewer than 1000 frames stored | The 1001st frame | Message "Frame store is full (1000 frames). Remaining lines were not processed." Decoding stops and the summary is shown |
+
+### 4.2 Validation Strategy
+
+1. **Validate at the boundary.** Every value is checked as soon as it enters the
+   program, either from the keyboard or from the file, and nothing unchecked is
+   passed to the logic.
+2. **Three layers.** The parser checks the *format* (field count, digits,
+   ranges). The validation module checks the *meaning* (known identifier, length,
+   checksum). `main.c` checks the *state* (a file is loaded, frames are stored,
+   the store is not full).
+3. **Reject, never repair.** A bad value is never guessed or corrected.
+4. **Report every problem.** A rejected line is reported with its line number and
+   the reason, and reading continues with the next line.
+5. **Bounded input only.** The program reads with `fgets` into fixed buffers and
+   converts text with checked functions. It never uses `gets` or `scanf("%s")`.
+6. **Never trap the user.** A prompt is repeated at most `MAX_INPUT_ATTEMPTS` (3)
+   times and then the program returns to the menu. End of input exits the
+   program.
+
+---
+
+## 5. File-Handling Design
+
+### 5.1 File Summary
+
+| File | Purpose | Format | Created By | Read By | Updated By |
+|---|---|---|---|---|---|
+| `data/sample_can_log.csv` (or any file the user names) | Log of recorded CAN frames to be decoded | Text (CSV) | A CAN logging tool, or by hand for testing | `file_handler.c`, called from `main.c` | Not updated. The program only reads it |
+
+The program writes no files. All results are printed to the console.
+
+### 5.2 Record Format
+
+The file is a plain-text file with one record per line. The first line is a
+header and is skipped. Every other line is one frame with 11 comma-separated
+fields and no spaces:
+
+```
+time_ms,id,dlc,b0,b1,b2,b3,b4,b5,b6,b7
+1000,0x100,8,1A,2C,78,80,00,00,00,CE
+```
+
+| Field | Name | Format | Example |
+|---|---|---|---|
+| 1 | `time_ms` | Decimal digits | `1000` |
+| 2 | `id` | Hexadecimal, optional `0x` | `0x100` |
+| 3 | `dlc` | Decimal digit, 0 to 8 | `8` |
+| 4 to 11 | `b0` to `b7` | One or two hexadecimal digits | `1A` |
+
+- A line ends with a line feed or with a carriage return and a line feed.
+- The last line may have no line ending.
+- A blank line is skipped without being counted as an error.
+- The content of the header line is not checked, only that it exists.
+- Line numbers start at 1 for the header, so the first frame is on line 2.
+
+### 5.3 File Operations
+
+| Operation | Function or Module | C Library Function | Failure Handling |
+|---|---|---|---|
+| Create or open | `openLogFile` in `file_handler.c` | `fopen(name, "r")` | A NULL result gives `STATUS_ERR_FILE_OPEN`. `*file` is set to NULL |
+| Read the header | `openLogFile` | `fgets`, `feof`, `ferror` | No data and end of file gives `STATUS_ERR_FILE_EMPTY`. A read error gives `STATUS_ERR_FILE_READ`. The file is closed before returning |
+| Read a line | `readLogLine` | `fgets`, `feof`, `ferror` | End of file gives `STATUS_END_OF_FILE`. A read error gives `STATUS_ERR_FILE_READ`. A line that does not fit gives `STATUS_ERR_LINE_TOO_LONG` |
+| Write | Not applicable | Not applicable | The program writes no files |
+| Update | Not applicable | Not applicable | The program does not modify files |
+| Close | `closeLogFile` | `fclose` | Does nothing for NULL. The result of `fclose` is checked. A failure on a file opened only for reading cannot lose data, so it is deliberately not reported |
+
+Every file that is opened is closed on every path, including after an error.
+
+### 5.4 File Error Conditions
+
+| Error Condition | Detection Method | Expected Behaviour |
+|---|---|---|
+| File does not exist | `fopen` returns NULL | Message "Cannot open the file". Back to the menu. No file is marked as loaded |
+| File cannot be opened (no permission) | `fopen` returns NULL | Same as above |
+| File is empty | The first `fgets` returns NULL and `feof` is true | Message "The file has no header line". The file is closed and not marked as loaded |
+| File contains invalid data | `parseFrameLine` or `validateFrame` returns an error | The line is rejected, or the frame is stored with its error. Reading continues |
+| Line too long | `readLogLine` returns `STATUS_ERR_LINE_TOO_LONG` | The line is counted as rejected and the rest of it is skipped |
+| Read fails | `fgets` returns NULL and `ferror` is true | Message "Error while reading the file". Reading stops. The frames processed so far are kept and the summary is shown |
+| Name refers to a directory | The first read fails with `ferror` | Treated as a read failure |
+
+---
+
+## 6. Error-Handling Strategy
+
+### 6.1 Status Representation
+
+All functions that can fail return the `Status_t` type defined in section 1.2.
+`STATUS_SUCCESS` is 0. `STATUS_END_OF_FILE` is not an error. All other values
+describe one error.
+
+Rules:
+1. A function **returns** an error and never prints it, and never calls `exit`.
+2. The **caller** decides what to do. At the top level, `main.c` prints the text
+   returned by `statusToText`.
+3. Every return value is checked. None is ignored.
+4. A function writes its output parameters only on success, unless stated.
+5. A frame that fails a check keeps its `Status_t` in the store, so the error can
+   be shown later.
+
+Readable text for each status, returned by `statusToText`:
+
+| Status | Text |
+|---|---|
+| `STATUS_SUCCESS` | Success |
+| `STATUS_END_OF_FILE` | End of file |
+| `STATUS_ERR_NULL_POINTER` | Internal error: null pointer |
+| `STATUS_ERR_INVALID_ARGUMENT` | Invalid argument |
+| `STATUS_ERR_FILE_OPEN` | Cannot open the file |
+| `STATUS_ERR_FILE_EMPTY` | The file has no header line |
+| `STATUS_ERR_FILE_READ` | Error while reading the file |
+| `STATUS_ERR_LINE_TOO_LONG` | Line is too long |
+| `STATUS_ERR_FIELD_COUNT` | Wrong number of fields (expected 11) |
+| `STATUS_ERR_INVALID_HEX` | Invalid number |
+| `STATUS_ERR_OUT_OF_RANGE` | Value out of range |
+| `STATUS_ERR_STORE_FULL` | Frame store is full |
+| `STATUS_ERR_UNKNOWN_ID` | Unknown identifier |
+| `STATUS_ERR_BAD_LENGTH` | Data length is not 8 |
+| `STATUS_ERR_BAD_CHECKSUM` | Checksum mismatch |
+| any other value | Unknown status |
+
+### 6.2 Error Catalogue
+
+| Error ID | Error Condition | Detection Location | Returned Status | User-Facing Behaviour |
+|---|---|---|---|---|
+| ERR-01 | A required pointer is NULL | Start of every function | `STATUS_ERR_NULL_POINTER` | "Internal error: null pointer". The action is cancelled and the menu is shown |
+| ERR-02 | An argument is unacceptable (empty name, zero size) | Menu, file handler, frame store | `STATUS_ERR_INVALID_ARGUMENT` | "Invalid argument". The user is asked again |
+| ERR-03 | The log file cannot be opened | `openLogFile` | `STATUS_ERR_FILE_OPEN` | "Cannot open the file". Back to the menu, no file loaded |
+| ERR-04 | The log file has no header line | `openLogFile` | `STATUS_ERR_FILE_EMPTY` | "The file has no header line". Back to the menu, no file loaded |
+| ERR-05 | A read from the file fails | `openLogFile`, `readLogLine` | `STATUS_ERR_FILE_READ` | "Error while reading the file". Reading stops, the summary of the lines processed is shown |
+| ERR-06 | A line is longer than 255 characters | `readLogLine` | `STATUS_ERR_LINE_TOO_LONG` | "Line N rejected: Line is too long". Reading continues |
+| ERR-07 | A line does not have 11 fields | `parseFrameLine` | `STATUS_ERR_FIELD_COUNT` | "Line N rejected: Wrong number of fields (expected 11)". Reading continues |
+| ERR-08 | A field is empty or not a valid number | `parseFrameLine`, `parseHexValue`, `parseDecimalValue` | `STATUS_ERR_INVALID_HEX` | "Line N rejected: Invalid number", or the user is asked again |
+| ERR-09 | A number is outside its range | `parseFrameLine`, `parseHexValue`, `parseDecimalValue` | `STATUS_ERR_OUT_OF_RANGE` | "Line N rejected: Value out of range", or the user is asked again |
+| ERR-10 | The identifier is not known | `validateFrame` | `STATUS_ERR_UNKNOWN_ID` | The frame is stored and shown as "Unknown identifier". It is counted in the summary |
+| ERR-11 | The data length is not 8 | `validateFrame` | `STATUS_ERR_BAD_LENGTH` | The frame is stored and shown as "Data length is not 8". It is counted |
+| ERR-12 | The checksum does not match | `validateFrame` | `STATUS_ERR_BAD_CHECKSUM` | The frame is stored and shown as "Checksum mismatch" with the expected and received values. It is counted |
+| ERR-13 | The store already holds 1000 frames | `addFrame` | `STATUS_ERR_STORE_FULL` | "Frame store is full (1000 frames). Remaining lines were not processed." Decoding stops and the summary is shown |
+| ERR-14 | The menu choice is not 0 to 6 | `parseMenuChoice` | `MENU_INVALID` | "Invalid choice. Enter a number from 0 to 6." The menu is shown again |
+| ERR-15 | Three invalid entries in a row | Menu input functions | The last error status | "Too many invalid entries. Returning to the menu." |
+| ERR-16 | The input stream is closed | Menu | `STATUS_END_OF_FILE` | The program ends normally |
+| ERR-17 | An action needs a file or frames that are not there | Handlers in `main.c` | None (checked by `main.c`) | "No file loaded. Choose 1 first." or "No frames stored. Choose 2 first." |
+
+### 6.3 Recovery Strategy
+
+The application is designed to keep running after any error. No error ends the
+program. The program ends only when the user chooses Exit or the input stream
+closes.
+
+| Level | Example | Recovery |
+|---|---|---|
+| A line of the log | Wrong field count, bad number | The line is counted as rejected and reported with its number. The next line is read |
+| A frame | Unknown identifier, wrong length, wrong checksum | The frame is stored with its status, counted, and shown. Decoding continues |
+| An action | File cannot be opened, store full, no data | A message is shown and the program returns to the menu. The state stays consistent: a failed load leaves no file marked as loaded, and a full store keeps the 1000 frames already stored |
+| User input | Invalid choice, bad identifier | The user is asked again, at most 3 times, then returned to the menu |
+
+Further rules:
+1. Choosing "Load log file" again clears the store and the summary, so earlier
+   results are never mixed with a new file.
+2. A file that was opened is closed on every path, including after an error.
+3. No module calls `exit` or `abort`, and no module prints an error message.
+4. The program returns `EXIT_SUCCESS` when it ends normally.
