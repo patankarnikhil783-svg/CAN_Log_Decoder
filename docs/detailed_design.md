@@ -1447,3 +1447,300 @@ Further rules:
 2. A file that was opened is closed on every path, including after an error.
 3. No module calls `exit` or `abort`, and no module prints an error message.
 4. The program returns `EXIT_SUCCESS` when it ends normally.
+
+---
+
+## 7. Coding Standards Plan
+
+### 7.1 Naming Conventions
+
+| Item | Convention | Example |
+|---|---|---|
+| Source files | lowercase with underscores, `.c` | `file_handler.c` |
+| Header files | lowercase with underscores, `.h` | `frame_store.h` |
+| Test files | `test_` followed by the module name, `.cpp` | `test_parser.cpp` |
+| Functions | camelCase, starting with a verb | `parseFrameLine`, `validateFrame` |
+| Local variables and parameters | camelCase, meaningful names | `frameCount`, `maxIndices` |
+| Structure and enumeration members | camelCase for structure members | `timeMs`, `bitLength` |
+| Structures | PascalCase with the suffix `_t` | `CanFrame_t`, `FrameStore_t` |
+| Enumerations | PascalCase with the suffix `_t`, constants in UPPER_CASE with a prefix | `Status_t`, `STATUS_SUCCESS` |
+| Constants and macros | UPPER_CASE with underscores | `MAX_FRAMES`, `DATA_BYTES` |
+| Include guards | the header name in UPPER_CASE with `_H` | `FRAME_STORE_H` |
+| `static` helper functions | camelCase, no module prefix needed | `skipSpaces` |
+
+### 7.2 Formatting Rules
+
+- **Indentation:** 4 spaces. No tab characters in any C or C++ file. (A Makefile
+  recipe line needs one tab, which is the only exception.)
+- **Brace style:** each opening brace on its own line (Allman style), for
+  functions, structures, loops and conditions.
+- **Braces always:** every `if`, `else`, `for` and `while` has braces, even for
+  one statement.
+- **One statement per line.** One variable declared per line.
+- **Pointers:** the star is attached to the name, for example `char *text`.
+- **Maximum line length:** 100 characters.
+- **Compiler warning flags:** C code `-std=c99 -Wall -Wextra -Wpedantic`.
+  C++ test code `-std=c++17 -Wall -Wextra`. The build shall produce no warnings.
+- **Comment style:** every function has a block comment above it (`/* ... */`)
+  giving its purpose, parameters and return values. Inline comments explain why
+  and not what. No commented-out code.
+
+### 7.3 Function Rules
+
+- Each function does one task and is normally no longer than 50 lines.
+- A function has at most 5 parameters.
+- Pointer parameters are checked for NULL first.
+- Parameters that are only read are declared `const`.
+- Variables are initialised where they are declared.
+- Functions that can fail return a `Status_t` and never print or exit.
+- Return values are always checked by the caller.
+- All shifts and masks use unsigned types.
+- Numbers other than 0 and 1 are named constants, with no magic numbers.
+- Calculation and decision functions perform no input or output.
+
+### 7.4 Prohibited Practices
+
+- `gets`, and `scanf` with `%s` (unbounded input).
+- `strcpy`, `strcat` and `sprintf` (use bounded functions such as `snprintf`).
+- `strtok` (it changes its input and keeps hidden state).
+- `atoi` and `atof` (they cannot report an error).
+- Global variables that can be changed.
+- `malloc`, `calloc`, `realloc` and `free` (the program uses fixed-size arrays).
+- `goto`.
+- Calling `exit` or `abort` from a module.
+- Printing from a logic module.
+- Unused variables, functions, includes or commented-out code.
+- Absolute file paths.
+- Ignoring the return value of a function.
+- Mixing tabs and spaces.
+
+---
+
+## 8. Application Flow
+
+### 8.1 Main Application Flowchart
+
+![Main application flowchart](flow_main.png)
+
+The program initialises an empty store, then repeats: show the menu, read a
+choice and run the matching action, until the user chooses 0 or the input ends.
+Choices 2 to 5 first check that a file is loaded or that frames are stored.
+
+### 8.2 Operation Flow: Decode a Log File
+
+![Decode flowchart](flow_decode.png)
+
+Step sequence:
+1. Open the file and clear the store and the summary. If the file cannot be
+   opened, show the error and return to the menu.
+2. Read the next line. At the end of the file, close the file and print the
+   summary. After a read error, show the error and do the same.
+3. Skip a blank line. A line that is too long is counted as read and rejected.
+4. Count the line as read and parse it. If parsing fails, count it as rejected
+   and print its line number and the reason.
+5. Validate the frame. If it is valid, decode its signals. Otherwise count the
+   error type (unknown identifier, length or checksum).
+6. Add the frame to the store. If the store is full, show a message and stop.
+7. Print the result for the frame and read the next line.
+
+---
+
+## 9. Unit-Test Plan
+
+### 9.1 Functions Selected for Testing
+
+Framework: Google Test (gTest). Eighteen functions in six modules are tested. The
+requirement is at least three functions and ten tests.
+
+| Function | Module | Reason for Testing |
+|---|---|---|
+| `parseHexValue` | Parser | Converts untrusted text, so every kind of bad input must be rejected |
+| `parseDecimalValue` | Parser | Same reason, with a different number format |
+| `parseFrameLine` | Parser | First step for every line of the log |
+| `isBlankLine` | Parser | Decides which lines are skipped |
+| `calculateChecksum` | Validation | Bit manipulation with XOR |
+| `validateFrame` | Validation | Decides whether a frame is trusted, with checks in a fixed order |
+| `extractBits` | Decoder | Core bit manipulation with shifts and masks |
+| `convertRawValue` | Decoder | Scale factors and offsets |
+| `decodeFrame` | Decoder | Combines the table, extraction and conversion |
+| `findMessageDefinition` | Decoder | Decides whether an identifier is known |
+| `initFrameStore` | Frame store | Establishes a clean state |
+| `addFrame` | Frame store | Capacity limit of 1000 frames |
+| `getFrame` | Frame store | Index checking |
+| `computeIdStatistics` | Frame store | Counting logic for the statistics report |
+| `findFramesById` | Frame store | Filtering with a size limit |
+| `findErrorFrames` | Frame store | Filtering by error |
+| `parseMenuChoice` | Menu | Validates user input without needing a keyboard |
+| `statusToText` | Report | Every status must have readable text |
+
+### 9.2 Test Cases
+
+Summary: **60 tests: 20 positive, 19 negative and 21 boundary.**
+
+| Test ID | Function | Category | Input or Condition | Expected Result | Requirement ID |
+|---|---|---|---|---|---|
+| UT-01 | `parseHexValue` | Positive | Text `1A`, maximum 0xFF | `STATUS_SUCCESS`, value 0x1A | FR-02 |
+| UT-02 | `parseHexValue` | Positive | Text `0x100`, maximum 0x7FF | `STATUS_SUCCESS`, value 0x100 | FR-02 |
+| UT-03 | `parseHexValue` | Boundary | Text `FF`, maximum 0xFF | `STATUS_SUCCESS`, value 255 | FR-03 |
+| UT-04 | `parseHexValue` | Boundary | Text `100`, maximum 0xFF | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
+| UT-05 | `parseHexValue` | Negative | Text `ZZ` | `STATUS_ERR_INVALID_HEX` | FR-03 |
+| UT-06 | `parseHexValue` | Negative | Empty text | `STATUS_ERR_INVALID_HEX` | FR-03 |
+| UT-07 | `parseHexValue` | Negative | NULL text | `STATUS_ERR_NULL_POINTER` | NFR-03 |
+| UT-08 | `parseDecimalValue` | Boundary | Text `8`, maximum 8 | `STATUS_SUCCESS`, value 8 | FR-03 |
+| UT-09 | `parseDecimalValue` | Boundary | Text `9`, maximum 8 | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
+| UT-10 | `parseDecimalValue` | Negative | Text `-1` | `STATUS_ERR_INVALID_HEX` | FR-03 |
+| UT-11 | `parseFrameLine` | Positive | `1000,0x100,8,1A,2C,78,80,00,00,00,CE` | `STATUS_SUCCESS`; time 1000, id 0x100, dlc 8, data as written | FR-02 |
+| UT-12 | `parseFrameLine` | Positive | The same line followed by `\r\n` | `STATUS_SUCCESS`, same frame | FR-02 |
+| UT-13 | `parseFrameLine` | Negative | Line with 5 fields | `STATUS_ERR_FIELD_COUNT` | FR-03 |
+| UT-14 | `parseFrameLine` | Negative | Line with 12 fields | `STATUS_ERR_FIELD_COUNT` | FR-03 |
+| UT-15 | `parseFrameLine` | Negative | Data byte `ZZ` | `STATUS_ERR_INVALID_HEX` | FR-03 |
+| UT-16 | `parseFrameLine` | Boundary | Identifier `0x7FF` | `STATUS_SUCCESS` | FR-03 |
+| UT-17 | `parseFrameLine` | Boundary | Identifier `0x800` | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
+| UT-18 | `parseFrameLine` | Boundary | Data length `9` | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
+| UT-19 | `parseFrameLine` | Negative | NULL line, then NULL frame | `STATUS_ERR_NULL_POINTER` both times | NFR-03 |
+| UT-20 | `isBlankLine` | Boundary | Empty text, `"  \t"`, NULL, and `1000,0x100` | 1, 1, 1, and 0 | FR-03 |
+| UT-21 | `calculateChecksum` | Positive | Bytes `1A 2C 78 80 00 00 00 CE` | `STATUS_SUCCESS`, checksum 0xCE | FR-06 |
+| UT-22 | `calculateChecksum` | Boundary | All bytes 0x00 | `STATUS_SUCCESS`, checksum 0x00 | FR-06 |
+| UT-23 | `calculateChecksum` | Negative | NULL data | `STATUS_ERR_NULL_POINTER` | NFR-03 |
+| UT-24 | `validateFrame` | Positive | Valid engine frame (id 0x100, dlc 8, correct checksum) | `STATUS_SUCCESS` | FR-04, FR-05, FR-06 |
+| UT-25 | `validateFrame` | Negative | Identifier 0x7FF with a correct checksum | `STATUS_ERR_UNKNOWN_ID` | FR-04 |
+| UT-26 | `validateFrame` | Boundary | Valid frame with data length 7 | `STATUS_ERR_BAD_LENGTH` | FR-05 |
+| UT-27 | `validateFrame` | Negative | Valid frame with byte 7 changed | `STATUS_ERR_BAD_CHECKSUM` | FR-06 |
+| UT-28 | `validateFrame` | Boundary | Unknown identifier and a wrong checksum together | `STATUS_ERR_UNKNOWN_ID` (the checks run in order) | FR-04 |
+| UT-29 | `validateFrame` | Negative | NULL frame | `STATUS_ERR_NULL_POINTER` | NFR-03 |
+| UT-30 | `extractBits` | Positive | Engine bytes, start bit 0, length 16 | `STATUS_SUCCESS`, raw 0x2C1A | FR-07 |
+| UT-31 | `extractBits` | Positive | Vehicle bytes `E8 03 03`, start bit 16, length 1 | `STATUS_SUCCESS`, raw 1 | FR-08 |
+| UT-32 | `extractBits` | Positive | Vehicle bytes `E8 03 03`, start bit 17, length 3 | `STATUS_SUCCESS`, raw 1 | FR-08 |
+| UT-33 | `extractBits` | Boundary | Engine bytes, start bit 56, length 8 | `STATUS_SUCCESS`, raw 0xCE | FR-07 |
+| UT-34 | `extractBits` | Boundary | Start bit 56, length 9 | `STATUS_ERR_INVALID_ARGUMENT` | FR-07 |
+| UT-35 | `extractBits` | Negative | Length 0 | `STATUS_ERR_INVALID_ARGUMENT` | FR-07 |
+| UT-36 | `extractBits` | Negative | NULL data | `STATUS_ERR_NULL_POINTER` | NFR-03 |
+| UT-37 | `convertRawValue` | Positive | Raw 11290, factor 0.25, offset 0 | 2822.5 (within 0.001) | FR-07 |
+| UT-38 | `convertRawValue` | Boundary | Raw 0, factor 1, offset -40 | -40.0 | FR-07 |
+| UT-39 | `decodeFrame` | Positive | Engine frame `1A 2C 78 80 ... CE` | `STATUS_SUCCESS`, 3 values: 2822.5, 80.0, 51.2 | FR-07 |
+| UT-40 | `decodeFrame` | Positive | Vehicle speed frame `E8 03 03 ... E8` | `STATUS_SUCCESS`, 3 values: 10.0, 1.0, 1.0 | FR-08 |
+| UT-41 | `decodeFrame` | Positive | Battery frame `7B 00 ... 7B` | `STATUS_SUCCESS`, 1 value: 12.3 | FR-09 |
+| UT-42 | `decodeFrame` | Negative | Identifier 0x7FF | `STATUS_ERR_UNKNOWN_ID`, count 0 | FR-04 |
+| UT-43 | `decodeFrame` | Negative | NULL frame | `STATUS_ERR_NULL_POINTER` | NFR-03 |
+| UT-44 | `findMessageDefinition` | Boundary | Identifiers 0x100 and 0x101 | Non-NULL with 3 signals, and NULL | FR-04 |
+| UT-45 | `initFrameStore` | Positive | Store filled with other data, then initialised | Count is 0 | FR-10 |
+| UT-46 | `addFrame` | Positive | Add one frame to an empty store | `STATUS_SUCCESS`, count 1, `getFrame(0)` equals the frame | FR-10 |
+| UT-47 | `addFrame` | Boundary | Store with 999 frames: add one, then add another | `STATUS_SUCCESS` (count 1000), then `STATUS_ERR_STORE_FULL` (count stays 1000) | FR-10 |
+| UT-48 | `getFrame` | Boundary | Store with 3 frames, index 2 and index 3 | Non-NULL, and NULL | FR-10 |
+| UT-49 | `computeIdStatistics` | Positive | Store with 3 frames of 0x100 (1 in error) and 1 of 0x200 | For 0x100: received 3, valid 2, errors 1 | FR-14 |
+| UT-50 | `findFramesById` | Positive | Store with ids 0x100, 0x200, 0x100; search 0x100 | `STATUS_SUCCESS`, indices 0 and 2, count 2 | FR-15 |
+| UT-51 | `findFramesById` | Boundary | 3 matching frames, `maxIndices` 2 | `STATUS_SUCCESS`, count 2 (the first two) | FR-15 |
+| UT-52 | `findErrorFrames` | Positive | Store with 2 valid frames and 2 error frames | `STATUS_SUCCESS`, indices of the 2 error frames | FR-16 |
+| UT-53 | `addFrame`, `computeIdStatistics`, `findFramesById` | Negative | NULL store passed to each | `STATUS_ERR_NULL_POINTER` each time | NFR-03 |
+| UT-54 | `parseMenuChoice` | Boundary | Text `0` | `MENU_EXIT` | FR-11 |
+| UT-55 | `parseMenuChoice` | Boundary | Text `6` | `MENU_SINGLE_FRAME` | FR-11 |
+| UT-56 | `parseMenuChoice` | Boundary | Text `7` | `MENU_INVALID` | FR-12 |
+| UT-57 | `parseMenuChoice` | Negative | Texts `abc`, empty, `12`, `-1` | `MENU_INVALID` each time | FR-12 |
+| UT-58 | `parseMenuChoice` | Positive | Text `"  3\n"` | `MENU_STATISTICS` | FR-12 |
+| UT-59 | `parseMenuChoice` | Negative | NULL | `MENU_INVALID` | NFR-03 |
+| UT-60 | `statusToText` | Positive | Each of the 15 status values, and the value 999 | Non-empty and different text for each status, and `Unknown status` for 999 | FR-13 |
+
+### 9.3 Test Data and Setup
+
+**Test input data.** Three standard frames are used in most tests. Their
+identifiers are 0x100, 0x200 and 0x300.
+
+| Frame | Identifier | Data bytes (byte 7 is the checksum) |
+|---|---|---|
+| Engine | 0x100 | `1A 2C 78 80 00 00 00 CE` |
+| Vehicle speed | 0x200 | `E8 03 03 00 00 00 00 E8` |
+| Battery | 0x300 | `7B 00 00 00 00 00 00 7B` |
+
+Helper functions in the test files (for example `makeFrame`) build these frames,
+so no test depends on another.
+
+**Temporary files.** The unit tests do not use files. The parser, validation,
+decoder, frame store and menu functions work on values in memory. The file
+functions are checked in the system tests below.
+
+**Initial conditions.** Each test creates its own data and its own store. No test
+uses global state or relies on the order in which tests run.
+
+**Cleanup.** The unit tests create nothing that needs cleanup. Files made for the
+system tests are deleted afterwards.
+
+**Floating-point comparison.** Decoded values are compared with
+`EXPECT_NEAR(actual, expected, 0.001)`, not with exact equality.
+
+**Test files.**
+
+| Test file | Tests |
+|---|---|
+| `tests/test_parser.cpp` | UT-01 to UT-20 |
+| `tests/test_validation.cpp` | UT-21 to UT-29 |
+| `tests/test_decoder.cpp` | UT-30 to UT-44 |
+| `tests/test_frame_store.cpp` | UT-45 to UT-53 |
+| `tests/test_menu.cpp` | UT-54 to UT-59 |
+| `tests/test_report.cpp` | UT-60 |
+
+**Test naming.** `TEST(FunctionName, Behaviour)`, for example
+`TEST(ExtractBits, ReadsTwoByteSignal)`.
+
+### 9.4 System Tests
+
+These run the real program and check what the user sees. They cover the file
+functions and the menu input, which cannot be unit tested without a keyboard or a
+file.
+
+**Sample log** (`data/sample_can_log.csv`). Line numbers count the header as line 1.
+
+```
+time_ms,id,dlc,b0,b1,b2,b3,b4,b5,b6,b7
+1000,0x100,8,1A,2C,78,80,00,00,00,CE
+1010,0x200,8,E8,03,03,00,00,00,00,E8
+1020,0x300,8,7B,00,00,00,00,00,00,7B
+1100,0x100,8,34,2E,79,90,00,00,00,F3
+1110,0x200,8,F4,03,02,00,00,00,00,00
+1120,0x7FF,8,00,00,00,00,00,00,00,00
+1130,0x100,8,ZZ,2C,78,80,00,00,00,CE
+1200,0x100,8,34,2E,7A,90,00,00,00,F0
+```
+
+Line 6 has a wrong checksum (expected F5, found 00). Line 7 has an unknown
+identifier. Line 8 has an invalid byte.
+
+| Test ID | Action | Expected Result |
+|---|---|---|
+| ST-01 | `make all` | Builds with no warnings and creates `can_decoder` |
+| ST-02 | Choose `9`, then `abc`, then an empty line | "Invalid choice" each time and the menu is shown again |
+| ST-03 | Choose 2 before loading | "No file loaded. Choose 1 first." |
+| ST-04 | Choose 3 before decoding | "No frames stored. Choose 2 first." |
+| ST-05 | Load `missing.csv` three times | "Cannot open the file" each time, then back to the menu |
+| ST-06 | Load `data/sample_can_log.csv` | The file is accepted |
+| ST-07 | Decode the sample | 8 lines read, 1 rejected (line 8, invalid number), 5 decoded, 1 checksum error (line 6), 1 unknown identifier (line 7), 0 length errors |
+| ST-08 | Statistics after ST-07 | 0x100: received 3, valid 3, errors 0. 0x200: received 2, valid 1, errors 1. 0x300: received 1, valid 1, errors 0. Unknown identifiers: 1 |
+| ST-09 | Frames of identifier 0x100 | Three frames listed, with engine speed 2822.5, 2957.0 and 2957.0 rpm |
+| ST-10 | Error frames | Two frames listed: line 6 (checksum, expected F5 and received 00) and line 7 (unknown identifier) |
+| ST-11 | Single frame: id 0x100, length 8, bytes `1A 2C 78 80 00 00 00 CE` | Engine speed 2822.5 rpm, coolant 80 degrees C, throttle 51.2 % |
+| ST-12 | Single frame with the last byte changed to `00` | "Checksum mismatch" |
+| ST-13 | Load an empty file (`touch empty.csv`) | "The file has no header line" |
+| ST-14 | Load the name of a folder (`data`) | "Error while reading the file" |
+| ST-15 | Decode a file with a line of 300 characters | The line is rejected as too long and the following lines are processed |
+| ST-16 | Decode a file with 1001 frames | "Frame store is full (1000 frames)", 1000 frames stored, the summary is shown |
+| ST-17 | Decode a file with 1000 frames and time it | Finishes in less than one second (NFR-13) |
+| ST-18 | Press Ctrl+D at the menu | The program ends normally without a loop |
+| ST-19 | `make clean`, then `make all` and `make test` | Everything is rebuilt and all unit tests pass |
+
+The large files for ST-15 to ST-17 are generated with shell commands (for example
+a `for` loop that writes one battery frame per line), and are deleted afterwards.
+
+### 9.5 Expected Test Command
+
+```
+make test
+```
+
+Expected output ends with:
+
+```
+[==========] 60 tests from N test suites ran.
+[  PASSED  ] 60 tests.
+```
+
+The number of test suites (N) depends on how the tests are grouped. The line that
+matters is `[  PASSED  ] 60 tests.`, with no failures.
