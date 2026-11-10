@@ -724,7 +724,7 @@ values above the maximum.
 
 **Related requirements:** FR-02, FR-03, FR-12
 
-**Planned unit tests:** UT-01, UT-02, UT-03, UT-04, UT-05, UT-06, UT-07
+**Planned unit tests:** UT-01, UT-02, UT-03
 
 ### 3.2 Function: parseFrameLine
 
@@ -782,7 +782,7 @@ non-numeric text, out-of-range values.
 
 **Related requirements:** FR-02, FR-03
 
-**Planned unit tests:** UT-11, UT-12, UT-13, UT-14, UT-15, UT-16, UT-17, UT-18, UT-19
+**Planned unit tests:** UT-04, UT-05, UT-06, UT-07
 
 ### 3.3 Function: calculateChecksum
 
@@ -821,7 +821,7 @@ read.
 
 **Related requirements:** FR-06
 
-**Planned unit tests:** UT-21, UT-22, UT-23
+**Planned unit tests:** UT-08
 
 ### 3.4 Function: validateFrame
 
@@ -869,7 +869,7 @@ checksum.
 
 **Related requirements:** FR-04, FR-05, FR-06
 
-**Planned unit tests:** UT-24, UT-25, UT-26, UT-27, UT-28, UT-29
+**Planned unit tests:** UT-09, UT-10, UT-11, UT-12, UT-13
 
 ### 3.5 Function: extractBits
 
@@ -931,7 +931,7 @@ not fit in the 64 data bits.
 
 **Related requirements:** FR-07, FR-08, FR-09, NFR-10
 
-**Planned unit tests:** UT-30, UT-31, UT-32, UT-33, UT-34, UT-35, UT-36
+**Planned unit tests:** UT-14, UT-15, UT-16, UT-17
 
 ### 3.6 Function: convertRawValue
 
@@ -969,7 +969,7 @@ float convertRawValue(uint32_t raw, float factor, float offset);
 
 **Related requirements:** FR-07, FR-08, FR-09
 
-**Planned unit tests:** UT-37, UT-38
+**Planned unit tests:** UT-18
 
 ### 3.7 Function: decodeFrame
 
@@ -1018,7 +1018,7 @@ not NULL.
 
 **Related requirements:** FR-07, FR-08, FR-09
 
-**Planned unit tests:** UT-39, UT-40, UT-41, UT-42, UT-43
+**Planned unit tests:** UT-19, UT-20, UT-21
 
 ### 3.8 Function: addFrame
 
@@ -1057,7 +1057,7 @@ error the store is unchanged.
 
 **Related requirements:** FR-10
 
-**Planned unit tests:** UT-45, UT-46, UT-47, UT-53
+**Planned unit tests:** UT-22, UT-23
 
 ### 3.9 Function: computeIdStatistics
 
@@ -1099,7 +1099,7 @@ stats->valid`.
 
 **Related requirements:** FR-14
 
-**Planned unit tests:** UT-49, UT-53
+**Planned unit tests:** UT-24
 
 ### 3.10 Function: findFramesById
 
@@ -1145,10 +1145,10 @@ nothing is ever cut off.
 
 **Related requirements:** FR-15
 
-**Planned unit tests:** UT-50, UT-51, UT-53
+**Planned unit tests:** UT-25, UT-26
 
 `findErrorFrames` has the same form and returns the indices of the frames whose
-status is not `STATUS_SUCCESS` (FR-16, UT-52).
+status is not `STATUS_SUCCESS` (FR-16, UT-27).
 
 ### 3.11 Function: parseMenuChoice
 
@@ -1189,7 +1189,7 @@ Anything else is invalid.
 
 **Related requirements:** FR-11, FR-12
 
-**Planned unit tests:** UT-54, UT-55, UT-56, UT-57, UT-58, UT-59
+**Planned unit tests:** UT-28, UT-29
 
 ### 3.12 Function: readLogLine
 
@@ -1242,20 +1242,20 @@ of file.
 
 | Function | Module | Behaviour | Tests |
 |---|---|---|---|
-| `parseDecimalValue` | Parser | Like `parseHexValue` for decimal digits only. A sign or any other character gives `STATUS_ERR_INVALID_HEX` | UT-08, UT-09, UT-10 |
-| `isBlankLine` | Parser | Returns 1 if the text is empty or only white space, otherwise 0. NULL returns 1 | UT-20 |
-| `findMessageDefinition` | Decoder | Returns the table entry for an identifier, or NULL if it is not known | UT-44 |
-| `initFrameStore` | Frame store | Sets the count to 0 | UT-45 |
-| `getFrame` | Frame store | Returns a pointer to a stored frame, or NULL if the store is NULL or the index is not below the count | UT-48 |
-| `getFrameCount` | Frame store | Returns the number of stored frames, or 0 for NULL | UT-46 |
-| `findErrorFrames` | Frame store | See section 3.10 | UT-52 |
+| `parseDecimalValue` | Parser | Like `parseHexValue` for decimal digits only. A sign or any other character gives `STATUS_ERR_INVALID_HEX` | Covered through `parseFrameLine` (UT-07) and the system tests |
+| `isBlankLine` | Parser | Returns 1 if the text is empty or only white space, otherwise 0. NULL returns 1 | System tests |
+| `findMessageDefinition` | Decoder | Returns the table entry for an identifier, or NULL if it is not known | UT-10 and UT-19 (used by `validateFrame` and `decodeFrame`) |
+| `initFrameStore` | Frame store | Sets the count to 0 | Used to set up UT-22 to UT-27 |
+| `getFrame` | Frame store | Returns a pointer to a stored frame, or NULL if the store is NULL or the index is not below the count | UT-22 |
+| `getFrameCount` | Frame store | Returns the number of stored frames, or 0 for NULL | System tests |
+| `findErrorFrames` | Frame store | See section 3.10 | UT-27 |
 | `openLogFile` | File handler | Opens the file, reads the header line and returns the open file. Returns `STATUS_ERR_FILE_OPEN`, `STATUS_ERR_FILE_EMPTY` or `STATUS_ERR_FILE_READ` on failure and sets `*file` to NULL | System tests |
 | `closeLogFile` | File handler | Closes the file. Does nothing for NULL | System tests |
 | `readMenuChoice` | Menu | Prints the menu, reads a line and returns `parseMenuChoice` of it. End of input returns `MENU_EXIT` | System tests |
 | `readFileName` | Menu | Prompts for and reads a non-empty file name | System tests |
 | `readIdentifier` | Menu | Prompts for and reads a hexadecimal identifier up to 0x7FF | System tests |
 | `readFrameFromUser` | Menu | Prompts for the identifier, length and eight data bytes and fills a frame | System tests |
-| `statusToText` | Report | Returns readable text for each `Status_t` value, and `"Unknown status"` for others | UT-60 |
+| `statusToText` | Report | Returns readable text for each `Status_t` value, and `"Unknown status"` for others | UT-30 |
 | `printFrameResult`, `printRejectedLine`, `printFrameList`, `printStatistics`, `printSummary` | Report | Format output to the stream given | System tests |
 
 ---
@@ -1549,96 +1549,68 @@ Step sequence:
 
 ### 9.1 Functions Selected for Testing
 
-Framework: Google Test (gTest). Eighteen functions in six modules are tested. The
-requirement is at least three functions and ten tests.
+Framework: Google Test (gTest). Fourteen functions in six modules are tested.
+The requirement is at least three functions and ten tests. Repeated tests of the
+same behaviour are not counted as separate tests, so each test below checks a
+different behaviour.
 
 | Function | Module | Reason for Testing |
 |---|---|---|
 | `parseHexValue` | Parser | Converts untrusted text, so every kind of bad input must be rejected |
-| `parseDecimalValue` | Parser | Same reason, with a different number format |
 | `parseFrameLine` | Parser | First step for every line of the log |
-| `isBlankLine` | Parser | Decides which lines are skipped |
 | `calculateChecksum` | Validation | Bit manipulation with XOR |
 | `validateFrame` | Validation | Decides whether a frame is trusted, with checks in a fixed order |
 | `extractBits` | Decoder | Core bit manipulation with shifts and masks |
 | `convertRawValue` | Decoder | Scale factors and offsets |
 | `decodeFrame` | Decoder | Combines the table, extraction and conversion |
-| `findMessageDefinition` | Decoder | Decides whether an identifier is known |
-| `initFrameStore` | Frame store | Establishes a clean state |
 | `addFrame` | Frame store | Capacity limit of 1000 frames |
-| `getFrame` | Frame store | Index checking |
+| `getFrame` | Frame store | Index access, checked together with `addFrame` |
 | `computeIdStatistics` | Frame store | Counting logic for the statistics report |
 | `findFramesById` | Frame store | Filtering with a size limit |
 | `findErrorFrames` | Frame store | Filtering by error |
 | `parseMenuChoice` | Menu | Validates user input without needing a keyboard |
 | `statusToText` | Report | Every status must have readable text |
 
+The other public functions (`parseDecimalValue`, `isBlankLine`,
+`findMessageDefinition`, `initFrameStore`, `getFrameCount`) are used by these
+tests or are checked in the system tests.
+
 ### 9.2 Test Cases
 
-Summary: **60 tests: 20 positive, 19 negative and 21 boundary.**
+Summary: **30 tests: 14 positive, 8 negative and 8 boundary.**
 
 | Test ID | Function | Category | Input or Condition | Expected Result | Requirement ID |
 |---|---|---|---|---|---|
-| UT-01 | `parseHexValue` | Positive | Text `1A`, maximum 0xFF | `STATUS_SUCCESS`, value 0x1A | FR-02 |
-| UT-02 | `parseHexValue` | Positive | Text `0x100`, maximum 0x7FF | `STATUS_SUCCESS`, value 0x100 | FR-02 |
-| UT-03 | `parseHexValue` | Boundary | Text `FF`, maximum 0xFF | `STATUS_SUCCESS`, value 255 | FR-03 |
-| UT-04 | `parseHexValue` | Boundary | Text `100`, maximum 0xFF | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
-| UT-05 | `parseHexValue` | Negative | Text `ZZ` | `STATUS_ERR_INVALID_HEX` | FR-03 |
-| UT-06 | `parseHexValue` | Negative | Empty text | `STATUS_ERR_INVALID_HEX` | FR-03 |
-| UT-07 | `parseHexValue` | Negative | NULL text | `STATUS_ERR_NULL_POINTER` | NFR-03 |
-| UT-08 | `parseDecimalValue` | Boundary | Text `8`, maximum 8 | `STATUS_SUCCESS`, value 8 | FR-03 |
-| UT-09 | `parseDecimalValue` | Boundary | Text `9`, maximum 8 | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
-| UT-10 | `parseDecimalValue` | Negative | Text `-1` | `STATUS_ERR_INVALID_HEX` | FR-03 |
-| UT-11 | `parseFrameLine` | Positive | `1000,0x100,8,1A,2C,78,80,00,00,00,CE` | `STATUS_SUCCESS`; time 1000, id 0x100, dlc 8, data as written | FR-02 |
-| UT-12 | `parseFrameLine` | Positive | The same line followed by `\r\n` | `STATUS_SUCCESS`, same frame | FR-02 |
-| UT-13 | `parseFrameLine` | Negative | Line with 5 fields | `STATUS_ERR_FIELD_COUNT` | FR-03 |
-| UT-14 | `parseFrameLine` | Negative | Line with 12 fields | `STATUS_ERR_FIELD_COUNT` | FR-03 |
-| UT-15 | `parseFrameLine` | Negative | Data byte `ZZ` | `STATUS_ERR_INVALID_HEX` | FR-03 |
-| UT-16 | `parseFrameLine` | Boundary | Identifier `0x7FF` | `STATUS_SUCCESS` | FR-03 |
-| UT-17 | `parseFrameLine` | Boundary | Identifier `0x800` | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
-| UT-18 | `parseFrameLine` | Boundary | Data length `9` | `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
-| UT-19 | `parseFrameLine` | Negative | NULL line, then NULL frame | `STATUS_ERR_NULL_POINTER` both times | NFR-03 |
-| UT-20 | `isBlankLine` | Boundary | Empty text, `"  \t"`, NULL, and `1000,0x100` | 1, 1, 1, and 0 | FR-03 |
-| UT-21 | `calculateChecksum` | Positive | Bytes `1A 2C 78 80 00 00 00 CE` | `STATUS_SUCCESS`, checksum 0xCE | FR-06 |
-| UT-22 | `calculateChecksum` | Boundary | All bytes 0x00 | `STATUS_SUCCESS`, checksum 0x00 | FR-06 |
-| UT-23 | `calculateChecksum` | Negative | NULL data | `STATUS_ERR_NULL_POINTER` | NFR-03 |
-| UT-24 | `validateFrame` | Positive | Valid engine frame (id 0x100, dlc 8, correct checksum) | `STATUS_SUCCESS` | FR-04, FR-05, FR-06 |
-| UT-25 | `validateFrame` | Negative | Identifier 0x7FF with a correct checksum | `STATUS_ERR_UNKNOWN_ID` | FR-04 |
-| UT-26 | `validateFrame` | Boundary | Valid frame with data length 7 | `STATUS_ERR_BAD_LENGTH` | FR-05 |
-| UT-27 | `validateFrame` | Negative | Valid frame with byte 7 changed | `STATUS_ERR_BAD_CHECKSUM` | FR-06 |
-| UT-28 | `validateFrame` | Boundary | Unknown identifier and a wrong checksum together | `STATUS_ERR_UNKNOWN_ID` (the checks run in order) | FR-04 |
-| UT-29 | `validateFrame` | Negative | NULL frame | `STATUS_ERR_NULL_POINTER` | NFR-03 |
-| UT-30 | `extractBits` | Positive | Engine bytes, start bit 0, length 16 | `STATUS_SUCCESS`, raw 0x2C1A | FR-07 |
-| UT-31 | `extractBits` | Positive | Vehicle bytes `E8 03 03`, start bit 16, length 1 | `STATUS_SUCCESS`, raw 1 | FR-08 |
-| UT-32 | `extractBits` | Positive | Vehicle bytes `E8 03 03`, start bit 17, length 3 | `STATUS_SUCCESS`, raw 1 | FR-08 |
-| UT-33 | `extractBits` | Boundary | Engine bytes, start bit 56, length 8 | `STATUS_SUCCESS`, raw 0xCE | FR-07 |
-| UT-34 | `extractBits` | Boundary | Start bit 56, length 9 | `STATUS_ERR_INVALID_ARGUMENT` | FR-07 |
-| UT-35 | `extractBits` | Negative | Length 0 | `STATUS_ERR_INVALID_ARGUMENT` | FR-07 |
-| UT-36 | `extractBits` | Negative | NULL data | `STATUS_ERR_NULL_POINTER` | NFR-03 |
-| UT-37 | `convertRawValue` | Positive | Raw 11290, factor 0.25, offset 0 | 2822.5 (within 0.001) | FR-07 |
-| UT-38 | `convertRawValue` | Boundary | Raw 0, factor 1, offset -40 | -40.0 | FR-07 |
-| UT-39 | `decodeFrame` | Positive | Engine frame `1A 2C 78 80 ... CE` | `STATUS_SUCCESS`, 3 values: 2822.5, 80.0, 51.2 | FR-07 |
-| UT-40 | `decodeFrame` | Positive | Vehicle speed frame `E8 03 03 ... E8` | `STATUS_SUCCESS`, 3 values: 10.0, 1.0, 1.0 | FR-08 |
-| UT-41 | `decodeFrame` | Positive | Battery frame `7B 00 ... 7B` | `STATUS_SUCCESS`, 1 value: 12.3 | FR-09 |
-| UT-42 | `decodeFrame` | Negative | Identifier 0x7FF | `STATUS_ERR_UNKNOWN_ID`, count 0 | FR-04 |
-| UT-43 | `decodeFrame` | Negative | NULL frame | `STATUS_ERR_NULL_POINTER` | NFR-03 |
-| UT-44 | `findMessageDefinition` | Boundary | Identifiers 0x100 and 0x101 | Non-NULL with 3 signals, and NULL | FR-04 |
-| UT-45 | `initFrameStore` | Positive | Store filled with other data, then initialised | Count is 0 | FR-10 |
-| UT-46 | `addFrame` | Positive | Add one frame to an empty store | `STATUS_SUCCESS`, count 1, `getFrame(0)` equals the frame | FR-10 |
-| UT-47 | `addFrame` | Boundary | Store with 999 frames: add one, then add another | `STATUS_SUCCESS` (count 1000), then `STATUS_ERR_STORE_FULL` (count stays 1000) | FR-10 |
-| UT-48 | `getFrame` | Boundary | Store with 3 frames, index 2 and index 3 | Non-NULL, and NULL | FR-10 |
-| UT-49 | `computeIdStatistics` | Positive | Store with 3 frames of 0x100 (1 in error) and 1 of 0x200 | For 0x100: received 3, valid 2, errors 1 | FR-14 |
-| UT-50 | `findFramesById` | Positive | Store with ids 0x100, 0x200, 0x100; search 0x100 | `STATUS_SUCCESS`, indices 0 and 2, count 2 | FR-15 |
-| UT-51 | `findFramesById` | Boundary | 3 matching frames, `maxIndices` 2 | `STATUS_SUCCESS`, count 2 (the first two) | FR-15 |
-| UT-52 | `findErrorFrames` | Positive | Store with 2 valid frames and 2 error frames | `STATUS_SUCCESS`, indices of the 2 error frames | FR-16 |
-| UT-53 | `addFrame`, `computeIdStatistics`, `findFramesById` | Negative | NULL store passed to each | `STATUS_ERR_NULL_POINTER` each time | NFR-03 |
-| UT-54 | `parseMenuChoice` | Boundary | Text `0` | `MENU_EXIT` | FR-11 |
-| UT-55 | `parseMenuChoice` | Boundary | Text `6` | `MENU_SINGLE_FRAME` | FR-11 |
-| UT-56 | `parseMenuChoice` | Boundary | Text `7` | `MENU_INVALID` | FR-12 |
-| UT-57 | `parseMenuChoice` | Negative | Texts `abc`, empty, `12`, `-1` | `MENU_INVALID` each time | FR-12 |
-| UT-58 | `parseMenuChoice` | Positive | Text `"  3\n"` | `MENU_STATISTICS` | FR-12 |
-| UT-59 | `parseMenuChoice` | Negative | NULL | `MENU_INVALID` | NFR-03 |
-| UT-60 | `statusToText` | Positive | Each of the 15 status values, and the value 999 | Non-empty and different text for each status, and `Unknown status` for 999 | FR-13 |
+| UT-01 | `parseHexValue` | Positive | Texts `1A` and `0x100` | `STATUS_SUCCESS` with values 0x1A and 0x100 | FR-02 |
+| UT-02 | `parseHexValue` | Boundary | Text `FF` and text `100`, maximum 0xFF | `STATUS_SUCCESS` with 255, then `STATUS_ERR_OUT_OF_RANGE` | FR-03 |
+| UT-03 | `parseHexValue` | Negative | Texts `ZZ` and empty text | `STATUS_ERR_INVALID_HEX` each time | FR-03 |
+| UT-04 | `parseFrameLine` | Positive | `1000,0x100,8,1A,2C,78,80,00,00,00,CE`, and the same line followed by `\r\n` | `STATUS_SUCCESS`; time 1000, id 0x100, dlc 8, data as written, both times | FR-02 |
+| UT-05 | `parseFrameLine` | Negative | A line with 5 fields and a line with 12 fields | `STATUS_ERR_FIELD_COUNT` each time | FR-03 |
+| UT-06 | `parseFrameLine` | Negative | Data byte `ZZ` | `STATUS_ERR_INVALID_HEX` | FR-03 |
+| UT-07 | `parseFrameLine` | Boundary | Identifier `0x7FF`, identifier `0x800`, data length `9` | `STATUS_SUCCESS`, then `STATUS_ERR_OUT_OF_RANGE` twice | FR-03 |
+| UT-08 | `calculateChecksum` | Positive | Bytes `1A 2C 78 80 00 00 00 CE`, and all bytes 0x00 | Checksum 0xCE, and 0x00 | FR-06 |
+| UT-09 | `validateFrame` | Positive | Valid engine frame (id 0x100, dlc 8, correct checksum) | `STATUS_SUCCESS` | FR-04, FR-05, FR-06 |
+| UT-10 | `validateFrame` | Negative | Identifier 0x7FF with a correct checksum | `STATUS_ERR_UNKNOWN_ID` | FR-04 |
+| UT-11 | `validateFrame` | Boundary | Valid frame with data length 7 | `STATUS_ERR_BAD_LENGTH` | FR-05 |
+| UT-12 | `validateFrame` | Negative | Valid frame with byte 7 changed | `STATUS_ERR_BAD_CHECKSUM` | FR-06 |
+| UT-13 | `validateFrame` | Boundary | Unknown identifier and a wrong checksum together | `STATUS_ERR_UNKNOWN_ID` (the checks run in order) | FR-04 |
+| UT-14 | `extractBits` | Positive | Engine bytes, start bit 0, length 16 | `STATUS_SUCCESS`, raw 0x2C1A | FR-07 |
+| UT-15 | `extractBits` | Positive | Vehicle bytes `E8 03 03`, start bit 16 length 1, and start bit 17 length 3 | Raw 1, and raw 1 | FR-08 |
+| UT-16 | `extractBits` | Boundary | Engine bytes, start bit 56 length 8, and start bit 56 length 9 | Raw 0xCE, then `STATUS_ERR_INVALID_ARGUMENT` | FR-07 |
+| UT-17 | `extractBits` | Negative | Length 0, and NULL data | `STATUS_ERR_INVALID_ARGUMENT`, and `STATUS_ERR_NULL_POINTER` | FR-07, NFR-03 |
+| UT-18 | `convertRawValue` | Positive | Raw 11290 with factor 0.25 and offset 0, and raw 0 with factor 1 and offset -40 | 2822.5 and -40.0 (within 0.001) | FR-07 |
+| UT-19 | `decodeFrame` | Positive | Engine frame `1A 2C 78 80 ... CE` | `STATUS_SUCCESS`, 3 values: 2822.5, 80.0, 51.2 | FR-07 |
+| UT-20 | `decodeFrame` | Positive | Vehicle speed frame `E8 03 03 ... E8` and battery frame `7B 00 ... 7B` | Values 10.0, 1.0, 1.0 and value 12.3 | FR-08, FR-09 |
+| UT-21 | `decodeFrame` | Negative | Identifier 0x7FF, and a NULL frame | `STATUS_ERR_UNKNOWN_ID` with count 0, and `STATUS_ERR_NULL_POINTER` | FR-04, NFR-03 |
+| UT-22 | `addFrame`, `getFrame` | Positive | Add one frame to an empty store | `STATUS_SUCCESS`, count 1, `getFrame(0)` equals the frame | FR-10 |
+| UT-23 | `addFrame` | Boundary | Store with 999 frames: add one, then add another | `STATUS_SUCCESS` (count 1000), then `STATUS_ERR_STORE_FULL` (count stays 1000) | FR-10 |
+| UT-24 | `computeIdStatistics` | Positive | Store with 3 frames of 0x100 (1 in error) and 1 of 0x200 | For 0x100: received 3, valid 2, errors 1 | FR-14 |
+| UT-25 | `findFramesById` | Positive | Store with ids 0x100, 0x200, 0x100; search 0x100 | `STATUS_SUCCESS`, indices 0 and 2, count 2 | FR-15 |
+| UT-26 | `findFramesById` | Boundary | 3 matching frames, `maxIndices` 2 | `STATUS_SUCCESS`, count 2 (the first two) | FR-15 |
+| UT-27 | `findErrorFrames` | Positive | Store with 2 valid frames and 2 error frames | `STATUS_SUCCESS`, the indices of the 2 error frames | FR-16 |
+| UT-28 | `parseMenuChoice` | Boundary | Texts `0`, `6`, `"  3\n"` and `7` | `MENU_EXIT`, `MENU_SINGLE_FRAME`, `MENU_STATISTICS`, `MENU_INVALID` | FR-11, FR-12 |
+| UT-29 | `parseMenuChoice` | Negative | Texts `abc`, empty, `12`, `-1`, and NULL | `MENU_INVALID` each time | FR-12, NFR-03 |
+| UT-30 | `statusToText` | Positive | Each of the 15 status values, and the value 999 | Non-empty and different text for each status, and `Unknown status` for 999 | FR-13 |
 
 ### 9.3 Test Data and Setup
 
@@ -1671,12 +1643,12 @@ system tests are deleted afterwards.
 
 | Test file | Tests |
 |---|---|
-| `tests/test_parser.cpp` | UT-01 to UT-20 |
-| `tests/test_validation.cpp` | UT-21 to UT-29 |
-| `tests/test_decoder.cpp` | UT-30 to UT-44 |
-| `tests/test_frame_store.cpp` | UT-45 to UT-53 |
-| `tests/test_menu.cpp` | UT-54 to UT-59 |
-| `tests/test_report.cpp` | UT-60 |
+| `tests/test_parser.cpp` | UT-01 to UT-07 |
+| `tests/test_validation.cpp` | UT-08 to UT-13 |
+| `tests/test_decoder.cpp` | UT-14 to UT-21 |
+| `tests/test_frame_store.cpp` | UT-22 to UT-27 |
+| `tests/test_menu.cpp` | UT-28 to UT-29 |
+| `tests/test_report.cpp` | UT-30 |
 
 **Test naming.** `TEST(FunctionName, Behaviour)`, for example
 `TEST(ExtractBits, ReadsTwoByteSignal)`.
@@ -1738,9 +1710,9 @@ make test
 Expected output ends with:
 
 ```
-[==========] 60 tests from N test suites ran.
-[  PASSED  ] 60 tests.
+[==========] 30 tests from N test suites ran.
+[  PASSED  ] 30 tests.
 ```
 
 The number of test suites (N) depends on how the tests are grouped. The line that
-matters is `[  PASSED  ] 60 tests.`, with no failures.
+matters is `[  PASSED  ] 30 tests.`, with no failures.
