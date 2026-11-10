@@ -1716,3 +1716,65 @@ Expected output ends with:
 
 The number of test suites (N) depends on how the tests are grouped. The line that
 matters is `[  PASSED  ] 30 tests.`, with no failures.
+
+---
+
+## 10. Makefile Design
+
+### 10.1 Required Targets
+
+| Target | Purpose | Expected Output |
+|---|---|---|
+| `all` | Build the application | Every file in `src/` is compiled into `build/` with no warnings, and the executable `can_decoder` is linked |
+| `run` | Run the application | The application is built if necessary and started, and the main menu appears |
+| `test` | Build and execute the unit tests | Every file in `tests/` is compiled and linked with all modules except `main.c` and with gTest, then run. The output ends with `[  PASSED  ] 30 tests.` |
+| `clean` | Remove generated files | The `build/` folder and `can_decoder` are deleted, and nothing generated remains |
+
+### 10.2 Build Configuration
+
+| Item | Planned Value |
+|---|---|
+| C compiler | `gcc` |
+| C++ compiler | `g++` |
+| C compiler flags | `-std=c99 -Wall -Wextra -Wpedantic -Iinclude -MMD -MP` |
+| C++ compiler flags | `-std=c++17 -Wall -Wextra -Iinclude -MMD -MP` |
+| Include paths | `include/` |
+| gTest libraries | `-lgtest -lgtest_main -pthread` |
+| Application executable | `can_decoder` |
+| Test executable | `build/run_tests` |
+| Object files | `build/*.o` for the application and `build/tests/*.o` for the tests |
+| Source discovery | `$(wildcard src/*.c)` and `$(wildcard tests/*.cpp)`, so a new file needs no change to the Makefile |
+
+### 10.3 Design Notes
+
+1. **Compilers and flags are variables** (`CC`, `CXX`, `CFLAGS`, `CXXFLAGS`), so
+   they are changed in one place.
+2. **Each source file is compiled separately** into its own object file.
+3. **Only changed files are rebuilt.** The flags `-MMD -MP` make the compiler
+   write a dependency file for each object, so a change to a header recompiles
+   exactly the files that include it. Running `make all` twice in a row does
+   nothing the second time.
+4. **The test program leaves out `main.o`.** Both `main.c` and gTest provide a
+   `main` function and two would clash. This is also why `main.c` holds only
+   control logic: everything that needs testing is in the other modules.
+5. **`make run` starts the program without arguments.** The user chooses the
+   file at the menu (option 1), so no file name is passed on the command line.
+6. **The build uses no linker libraries beyond gTest.** The program does not use
+   the maths library.
+7. **Recipe lines start with a tab character.** This is the one place where a tab
+   is required, and it does not conflict with the no-tabs rule for C and C++
+   files.
+8. **Generated files are ignored by Git.** `build/` and `can_decoder` are listed
+   in `.gitignore`.
+
+---
+
+## 11. Requirement Traceability
+
+The traceability table is in section 4.3 of `docs/project_proposal.md`, as the
+template places it. It links every functional requirement (FR-01 to FR-18) and
+every non-functional requirement (NFR-01 to NFR-13) to its module, its function
+or feature, and its test IDs. The unit tests (`UT-01` to `UT-30`) are defined in
+section 9.2 and the system tests (`ST-01` to `ST-19`) in section 9.4.
+
+Every functional requirement is covered by at least one unit test or system test.

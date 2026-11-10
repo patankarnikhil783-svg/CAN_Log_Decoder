@@ -203,8 +203,43 @@ The application will:
 
 ### 4.3 Requirement Traceability
 
-This table links each requirement to its module, function and test. It will be
-completed after the detailed design and the unit-test plan are prepared.
+This table links each requirement to its module, function or feature, and test.
+`UT-xx` are the unit tests and `ST-xx` are the system tests defined in section 9
+of `detailed_design.md`.
+
+| Requirement ID | Module | Function or Feature | Test ID |
+|---|---|---|---|
+| FR-01 | `file_handler`, `menu`, `main` | `openLogFile`, `readLogLine`, load handler | ST-05, ST-06, ST-13, ST-14 |
+| FR-02 | `parser` | `parseHexValue`, `parseFrameLine` | UT-01, UT-04 |
+| FR-03 | `parser` | `parseHexValue`, `parseFrameLine` (rejection of bad lines) | UT-02, UT-03, UT-05, UT-06, UT-07, ST-07, ST-15 |
+| FR-04 | `validation`, `decoder` | `validateFrame` (identifier check), `findMessageDefinition` | UT-09, UT-10, UT-13, UT-21 |
+| FR-05 | `validation` | `validateFrame` (length check) | UT-11 |
+| FR-06 | `validation` | `calculateChecksum`, `validateFrame` (checksum check) | UT-08, UT-12, ST-10, ST-12 |
+| FR-07 | `decoder` | `extractBits`, `convertRawValue`, `decodeFrame` (engine data) | UT-14, UT-16, UT-17, UT-18, UT-19 |
+| FR-08 | `decoder` | `extractBits`, `decodeFrame` (vehicle speed) | UT-15, UT-20 |
+| FR-09 | `decoder` | `decodeFrame` (battery status) | UT-20 |
+| FR-10 | `frame_store` | `addFrame`, `getFrame` | UT-22, UT-23, ST-16 |
+| FR-11 | `menu`, `main` | `readMenuChoice`, `parseMenuChoice`, menu loop, checks for a loaded file and stored frames | UT-28, ST-02, ST-03, ST-04, ST-18 |
+| FR-12 | `menu` | `parseMenuChoice`, `readFileName`, `readIdentifier`, `readFrameFromUser` | UT-28, UT-29, ST-02, ST-05 |
+| FR-13 | `report` | `printFrameResult`, `statusToText` | UT-30, ST-07 |
+| FR-14 | `frame_store`, `report` | `computeIdStatistics`, `printStatistics` | UT-24, ST-08 |
+| FR-15 | `frame_store`, `report` | `findFramesById`, `printFrameList` | UT-25, UT-26, ST-09 |
+| FR-16 | `frame_store`, `report` | `findErrorFrames`, `printFrameList` | UT-27, ST-10 |
+| FR-17 | `menu`, `validation`, `decoder`, `report` | `readFrameFromUser`, `validateFrame`, `decodeFrame`, `printFrameResult` | ST-11, ST-12 |
+| FR-18 | `report` | `printSummary` | ST-07 |
+| NFR-01 | All modules | Compiler flags in the Makefile | ST-01 |
+| NFR-02 | All modules | Module structure (design section 2) | Code review |
+| NFR-03 | All modules | NULL checks and input validation | UT-17, UT-21, UT-29, ST-02, ST-05, ST-13, ST-14, ST-15 |
+| NFR-04 | `tests/` | Google Test | UT-01 to UT-30 |
+| NFR-05 | Makefile | `all`, `run`, `test`, `clean` | ST-01, ST-19 |
+| NFR-06 | Repository | Git and GitHub | Repository review |
+| NFR-07 | `decoder` | Constant signal table | Code review |
+| NFR-08 | `parser`, `validation`, `decoder`, `frame_store` | Functions without input or output | Code review |
+| NFR-09 | All modules | Fixed-size arrays, no `malloc` | Code review |
+| NFR-10 | `decoder`, `validation` | Unsigned types in `extractBits` and `calculateChecksum` | UT-14, UT-16, UT-17, Code review |
+| NFR-11 | `menu` | `fgets` into bounded buffers, checked conversion | Code review |
+| NFR-12 | All modules | Coding standards (design section 7) | Code review |
+| NFR-13 | `main` and all modules | Decode loop | ST-17 |
 
 ## 5. High-Level Architecture
 

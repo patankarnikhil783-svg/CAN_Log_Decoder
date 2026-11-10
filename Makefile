@@ -1,17 +1,15 @@
-# BMS Simulator - Makefile
+# CAN Log Decoder - Makefile
 # Targets: all, run, test, clean
 
 CC        := gcc
 CXX       := g++
 CFLAGS    := -std=c99 -Wall -Wextra -Wpedantic -Iinclude -MMD -MP
 CXXFLAGS  := -std=c++17 -Wall -Wextra -Iinclude -MMD -MP
-LDLIBS    := -lm
 TEST_LIBS := -lgtest -lgtest_main -pthread
 
 BUILD     := build
 TARGET    := can_decoder
 TEST_BIN  := $(BUILD)/run_tests
-INPUT     ?= data/sample_can_log.csv
 
 SRCS      := $(wildcard src/*.c)
 OBJS      := $(patsubst src/%.c,$(BUILD)/%.o,$(SRCS))
@@ -24,7 +22,7 @@ TEST_OBJS := $(patsubst tests/%.cpp,$(BUILD)/tests/%.o,$(TEST_SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDLIBS)
+	$(CC) $(OBJS) -o $@
 
 $(BUILD)/%.o: src/%.c
 	@mkdir -p $(dir $@)
@@ -36,10 +34,10 @@ $(BUILD)/tests/%.o: tests/%.cpp
 
 # Tests link every module except main.c
 $(TEST_BIN): $(TEST_OBJS) $(LIB_OBJS)
-	$(CXX) $^ -o $@ $(TEST_LIBS) $(LDLIBS)
+	$(CXX) $^ -o $@ $(TEST_LIBS)
 
 run: all
-	./$(TARGET) $(INPUT)
+	./$(TARGET)
 
 test: $(TEST_BIN)
 	./$(TEST_BIN)
