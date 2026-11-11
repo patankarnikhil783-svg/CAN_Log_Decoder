@@ -43,6 +43,7 @@ types end in `_t` (`CanFrame_t`), constants and macros use UPPER_CASE
 | `MAX_LINE_LENGTH` | 256 | Size of the buffer that holds one line of text |
 | `MAX_FILE_NAME_LENGTH` | 128 | Size of the buffer that holds a file name |
 | `MAX_INPUT_ATTEMPTS` | 3 | Number of times the menu asks again after invalid input |
+| `MAX_INPUT_LENGTH` | 16 | Size of the buffer that holds one line typed at the menu |
 | `ID_ENGINE_DATA` | 0x100 | Identifier of the engine data message |
 | `ID_VEHICLE_SPEED` | 0x200 | Identifier of the vehicle speed message |
 | `ID_BATTERY_STATUS` | 0x300 | Identifier of the battery status message |
