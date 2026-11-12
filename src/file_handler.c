@@ -8,20 +8,47 @@ Owns opening, bounded line reading and closing of CAN log files.
 
 #include "file_handler.h"
 
+// Reads the header line and discards any part of it that does not fit in the buffer.
+static Status_t consumeHeaderLine(FILE *file)
+{
+    char header[MAX_LINE_LENGTH];
+    size_t headerLength;
+    int character;
+
+    if (fgets(header, (int)sizeof(header), file) == NULL)
+    {
+        return ferror(file) ? STATUS_ERR_FILE_READ : STATUS_ERR_FILE_EMPTY;
+    }
+    headerLength = strlen(header);
+
+    if ((headerLength > 0U) && (header[headerLength - 1U] != '\n') && !feof(file))
+    {
+        do
+        {
+            character = fgetc(file);
+        } while ((character != '\n') && (character != EOF));
+
+        if (ferror(file))
+        {
+            return STATUS_ERR_FILE_READ;
+        }
+    }
+    return STATUS_SUCCESS;
+}
+
 // Opens a log and consumes its header line.
 Status_t openLogFile(const char *fileName, FILE **file)
 {
-    char header[MAX_LINE_LENGTH];
     FILE *opened;
-    size_t headerLength;
+    Status_t status;
 
-    if (file == NULL) 
+    if (file == NULL)
     {
         return STATUS_ERR_NULL_POINTER;
     }
     *file = NULL;
 
-    if (fileName == NULL) 
+    if (fileName == NULL)
     {
         return STATUS_ERR_NULL_POINTER;
     }
@@ -32,53 +59,66 @@ Status_t openLogFile(const char *fileName, FILE **file)
     }
 
     opened = fopen(fileName, "r");
-    if (opened == NULL) 
+    if (opened == NULL)
     {
         return STATUS_ERR_FILE_OPEN;
     }
 
-    if (fgets(header, (int)sizeof(header), opened) == NULL)
+    status = consumeHeaderLine(opened);
+    if (status != STATUS_SUCCESS)
     {
-        Status_t status = ferror(opened) ? STATUS_ERR_FILE_READ : STATUS_ERR_FILE_EMPTY;
         (void)fclose(opened);
         return status;
-    }
-    headerLength = strlen(header);
-
-    if ((headerLength > 0U) && (header[headerLength - 1U] != '\n') && !feof(opened))
-    {
-        int character;
-        do
-        {
-            character = fgetc(opened);
-        } while ((character != '\n') && (character != EOF));
-
-        if (ferror(opened))
-        {
-            (void)fclose(opened);
-            return STATUS_ERR_FILE_READ;
-        }
     }
     *file = opened;
     return STATUS_SUCCESS;
 }
 
-// Reads one bounded line, removes CR/LF and drains over-long input lines. 
+// Handles the end of a line that filled the buffer: swallows a CR/LF pair, or drains the rest
+// of an over-long line and reports it.
+static Status_t finishLine(FILE *file, char *buffer)
+{
+    int next = fgetc(file);
+
+    if ((next != '\n') && (next != '\r') && (next != EOF))
+    {
+        while ((next != '\n') && (next != EOF))
+        {
+            next = fgetc(file);
+        }
+        buffer[0] = '\0';
+        return ferror(file) ? STATUS_ERR_FILE_READ : STATUS_ERR_LINE_TOO_LONG;
+    }
+    if (next == '\r')
+    {
+        next = fgetc(file);
+        if ((next != '\n') && (next != EOF))
+        {
+            (void)ungetc(next, file);
+        }
+    }
+    return STATUS_SUCCESS;
+}
+
+// Reads one bounded line, removes CR/LF and drains over-long input lines.
 Status_t readLogLine(FILE *file, char *buffer, size_t size)
 {
     size_t length;
-    int next;
-    if ((file == NULL) || (buffer == NULL)) {
+    Status_t status = STATUS_SUCCESS;
+
+    if ((file == NULL) || (buffer == NULL))
+    {
         return STATUS_ERR_NULL_POINTER;
     }
 
-    if (size < 2U) {
+    if (size < 2U)
+    {
         return STATUS_ERR_INVALID_ARGUMENT;
     }
 
     if (fgets(buffer, (int)size, file) == NULL)
     {
-        if (ferror(file)) 
+        if (ferror(file))
         {
             return STATUS_ERR_FILE_READ;
         }
@@ -93,28 +133,20 @@ Status_t readLogLine(FILE *file, char *buffer, size_t size)
 
     if ((buffer[length] == '\0') && !feof(file))
     {
-        next = fgetc(file);
-        if ((next != '\n') && (next != '\r') && (next != EOF))
-        {
-            while ((next != '\n') && (next != EOF)) next = fgetc(file);
-            buffer[0] = '\0';
-            return ferror(file) ? STATUS_ERR_FILE_READ : STATUS_ERR_LINE_TOO_LONG;
-        }
-        if (next == '\r')
-        {
-            next = fgetc(file);
-            if ((next != '\n') && (next != EOF)) 
-            {
-                (void)ungetc(next, file);
-            }
-        }
+        status = finishLine(file, buffer);
     }
-    buffer[length] = '\0';
-    return STATUS_SUCCESS;
+    if (status == STATUS_SUCCESS)
+    {
+        buffer[length] = '\0';
+    }
+    return status;
 }
 
 // Closes an open file; NULL is accepted.
 void closeLogFile(FILE *file)
 {
-    if (file != NULL) (void)fclose(file);
+    if (file != NULL)
+    {
+        (void)fclose(file);
+    }
 }
