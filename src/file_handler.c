@@ -26,7 +26,7 @@ Status_t openLogFile(const char *fileName, FILE **file)
         return STATUS_ERR_NULL_POINTER;
     }
 
-    if (fileName[0] == '\0') r
+    if (fileName[0] == '\0')
     {
         return STATUS_ERR_INVALID_ARGUMENT;
     }
