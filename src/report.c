@@ -10,7 +10,7 @@ Formats frame results, errors, statistics and summary output.
 #include "validation.h"
 #include "frame_store.h"
 
-// Converts a status code into the user-facing description in the design. 
+// Converts a status code into the user-facing description in the design.
 const char *statusToText(Status_t status)
 {
     switch (status)
@@ -41,7 +41,7 @@ void printFrameResult(FILE *out, const StoredFrame_t *item)
     uint8_t i;
     uint8_t expected = 0U;
 
-    if ((out == NULL) || (item == NULL)) 
+    if ((out == NULL) || (item == NULL))
     {
         return;
     }
@@ -61,7 +61,10 @@ void printFrameResult(FILE *out, const StoredFrame_t *item)
         return;
     }
     definition = findMessageDefinition(item->frame.id);
-    if (definition == NULL) return;
+    if (definition == NULL)
+    {
+        return;
+    }
     for (i = 0U; i < item->decoded.count; i++)
     {
         (void)fprintf(out, "  %-22s = %.3f %s\n", definition->signals[i].name,
@@ -69,10 +72,10 @@ void printFrameResult(FILE *out, const StoredFrame_t *item)
     }
 }
 
-// Prints the reason a malformed source line was rejected. 
+// Prints the reason a malformed source line was rejected.
 void printRejectedLine(FILE *out, uint32_t lineNumber, Status_t status)
 {
-    if (out == NULL) 
+    if (out == NULL)
     {
         return;
     }
@@ -85,12 +88,12 @@ void printFrameList(FILE *out, const FrameStore_t *store, const uint16_t *indice
     uint16_t i;
     const StoredFrame_t *item;
 
-    if ((out == NULL) || (store == NULL) || (indices == NULL)) 
+    if ((out == NULL) || (store == NULL) || (indices == NULL))
     {
         return;
     }
 
-    if (count == 0U) 
+    if (count == 0U)
     {
         (void)fprintf(out, "No matching frames.\n");
     }
@@ -99,7 +102,7 @@ void printFrameList(FILE *out, const FrameStore_t *store, const uint16_t *indice
     {
         item = getFrame(store, indices[i]);
 
-        if (item != NULL) 
+        if (item != NULL)
         {
             printFrameResult(out, item);
         }
@@ -111,12 +114,12 @@ void printStatistics(FILE *out, const FrameStore_t *store)
 {
     static const uint16_t knownIds[MESSAGE_COUNT] =
         {ID_ENGINE_DATA, ID_VEHICLE_SPEED, ID_BATTERY_STATUS};
-    
+
     IdStatistics_t stats;
     uint32_t unknown = 0U;
     uint16_t i;
 
-    if ((out == NULL) || (store == NULL)) 
+    if ((out == NULL) || (store == NULL))
     {
         return;
     }
@@ -134,7 +137,7 @@ void printStatistics(FILE *out, const FrameStore_t *store)
 
     for (i = 0U; i < store->count; i++)
     {
-        if (findMessageDefinition(store->items[i].frame.id) == NULL) 
+        if (findMessageDefinition(store->items[i].frame.id) == NULL)
         {
             unknown++;
         }
@@ -145,11 +148,11 @@ void printStatistics(FILE *out, const FrameStore_t *store)
 // Prints the processing totals collected during the last decode operation.
 void printSummary(FILE *out, const Summary_t *summary)
 {
-    if ((out == NULL) || (summary == NULL)) 
+    if ((out == NULL) || (summary == NULL))
     {
         return;
     }
-    
+
     (void)fprintf(out, "\n========== DECODE SUMMARY ==========\n");
     (void)fprintf(out, "Lines read:          %" PRIu32 "\n", summary->linesRead);
     (void)fprintf(out, "Lines rejected:      %" PRIu32 "\n", summary->linesRejected);

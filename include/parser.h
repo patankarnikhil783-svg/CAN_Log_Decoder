@@ -21,14 +21,14 @@ Status_t parseDecimalValue(const char *text, uint32_t maxValue, uint32_t *value)
  * no larger than maxValue. */
 Status_t parseHexValue(const char *text, uint32_t maxValue, uint32_t *value);
 
-// Parses one data line of the log (11 comma-separated fields) into a frame. 
+// Parses one data line of the log (11 comma-separated fields) into a frame.
 Status_t parseFrameLine(const char *line, CanFrame_t *frame);
 
-// Returns 1 if the text is empty or only white space, otherwise 0. 
+// Returns 1 if the text is empty or only white space, otherwise 0.
 int isBlankLine(const char *line);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // PARSER_H 
+#endif // PARSER_H

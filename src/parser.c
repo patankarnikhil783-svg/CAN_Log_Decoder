@@ -5,8 +5,8 @@
 
 #include "parser.h"
 
-#define MAX_BYTE_VALUE 0xFFu // largest value of one data byte           
-#define FIELD_BUFFER_SIZE 16 // room for one field of text plus the NUL  
+#define MAX_BYTE_VALUE 0xFFu // largest value of one data byte
+#define FIELD_BUFFER_SIZE 16 // room for one field of text plus the NUL
 
 // Positions of the fields in a data line.
 #define FIELD_TIME 0
@@ -14,7 +14,7 @@
 #define FIELD_DLC 2
 #define FIELD_FIRST_BYTE 3
 
-// Returns the value 0 to 15 of a hexadecimal digit, or -1 if c is not one. 
+// Returns the value 0 to 15 of a hexadecimal digit, or -1 if c is not one.
 static int digitValue(char c)
 {
     if (c >= '0' && c <= '9')
@@ -130,7 +130,7 @@ static Status_t readField(const char **cursor, const char *end, char *buffer, si
     return STATUS_SUCCESS;
 }
 
-// Converts one field, chosen by its index, and stores it in the frame. 
+// Converts one field, chosen by its index, and stores it in the frame.
 static Status_t convertField(size_t index, const char *field, CanFrame_t *frame)
 {
     uint32_t number = 0;

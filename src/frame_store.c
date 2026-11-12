@@ -10,7 +10,10 @@ Stores processed frames in a fixed-size array and provides queries.
 // Initialises a frame store as empty.
 Status_t initFrameStore(FrameStore_t *store)
 {
-    if (store == NULL) return STATUS_ERR_NULL_POINTER;
+    if (store == NULL)
+    {
+        return STATUS_ERR_NULL_POINTER;
+    }
     store->count = 0U;
     return STATUS_SUCCESS;
 }
@@ -18,12 +21,12 @@ Status_t initFrameStore(FrameStore_t *store)
 // Appends one item; the store is unchanged if an error occurs.
 Status_t addFrame(FrameStore_t *store, const StoredFrame_t *item)
 {
-    if ((store == NULL) || (item == NULL)) 
+    if ((store == NULL) || (item == NULL))
     {
         return STATUS_ERR_NULL_POINTER;
     }
 
-    if (store->count >= MAX_FRAMES) 
+    if (store->count >= MAX_FRAMES)
     {
         return STATUS_ERR_STORE_FULL;
     }
@@ -37,7 +40,7 @@ Status_t addFrame(FrameStore_t *store, const StoredFrame_t *item)
 // Returns a pointer to a stored item, or NULL for an invalid index.
 const StoredFrame_t *getFrame(const FrameStore_t *store, uint16_t index)
 {
-    if ((store == NULL) || (index >= store->count)) 
+    if ((store == NULL) || (index >= store->count))
     {
         return NULL;
     }
@@ -56,7 +59,7 @@ Status_t computeIdStatistics(const FrameStore_t *store, uint16_t id, IdStatistic
     uint16_t i;
     IdStatistics_t result = {id, 0U, 0U, 0U};
 
-    if ((store == NULL) || (stats == NULL)) 
+    if ((store == NULL) || (stats == NULL))
     {
         return STATUS_ERR_NULL_POINTER;
     }
@@ -66,7 +69,7 @@ Status_t computeIdStatistics(const FrameStore_t *store, uint16_t id, IdStatistic
         if (store->items[i].frame.id == id)
         {
             result.received++;
-            if (store->items[i].status == STATUS_SUCCESS) 
+            if (store->items[i].status == STATUS_SUCCESS)
             {
                 result.valid++;
             }
@@ -85,19 +88,22 @@ Status_t findFramesById(const FrameStore_t *store, uint16_t id, uint16_t *indice
     uint16_t i;
     uint16_t found = 0U;
 
-    if ((store == NULL) || (indices == NULL) || (count == NULL)) 
+    if ((store == NULL) || (indices == NULL) || (count == NULL))
     {
         return STATUS_ERR_NULL_POINTER;
     }
 
-    if (maxIndices == 0U) 
+    if (maxIndices == 0U)
     {
         return STATUS_ERR_INVALID_ARGUMENT;
     }
 
     for (i = 0U; (i < store->count) && (found < maxIndices); i++)
     {
-        if (store->items[i].frame.id == id) indices[found++] = i;
+        if (store->items[i].frame.id == id)
+        {
+            indices[found++] = i;
+        }
     }
 
     *count = found;
@@ -111,22 +117,22 @@ Status_t findErrorFrames(const FrameStore_t *store, uint16_t *indices,
     uint16_t i;
     uint16_t found = 0U;
 
-    if ((store == NULL) || (indices == NULL) || (count == NULL)) 
+    if ((store == NULL) || (indices == NULL) || (count == NULL))
     {
         return STATUS_ERR_NULL_POINTER;
     }
-    if (maxIndices == 0U) 
+    if (maxIndices == 0U)
     {
         return STATUS_ERR_INVALID_ARGUMENT;
     }
     for (i = 0U; (i < store->count) && (found < maxIndices); i++)
     {
-        if (store->items[i].status != STATUS_SUCCESS) 
+        if (store->items[i].status != STATUS_SUCCESS)
         {
             indices[found++] = i;
         }
     }
-    
+
     *count = found;
     return STATUS_SUCCESS;
 }

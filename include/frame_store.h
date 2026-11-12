@@ -27,4 +27,4 @@ Status_t findErrorFrames(const FrameStore_t *store, uint16_t *indices,
 #ifdef __cplusplus
 }
 #endif
-#endif // FRAME_STORE_H 
+#endif // FRAME_STORE_H

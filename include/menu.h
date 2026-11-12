@@ -24,4 +24,4 @@ Status_t readFrameFromUser(CanFrame_t *frame);
 }
 #endif
 
-#endif // MENU_H 
+#endif // MENU_H
