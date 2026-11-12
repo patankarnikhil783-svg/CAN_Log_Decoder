@@ -380,9 +380,9 @@ function.
 - [x] Multiple meaningful commits are present.
 - [x] `.gitignore` is configured.
 - [x] Generated files are not committed.
-- [ ] GitHub contains the complete project (tick after the final push).
-- [ ] The repository was cloned and verified independently (tick after the check).
-- [ ] The correct repository link is submitted.
+- [x] GitHub contains the complete project (tick after the final push).
+- [x] The repository was cloned and verified independently (tick after the check).
+- [x] The correct repository link is submitted.
 
 ### Documentation
 
