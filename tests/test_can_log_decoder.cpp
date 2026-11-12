@@ -42,7 +42,7 @@ TEST(ParseHexValue, AcceptsMaximumAndRejectsAboveIt)
     EXPECT_EQ(99u, value);
 }
 
-// UT-03: text that is not hexadecimal is rejected and nothing is written. 
+// UT-03: text that is not hexadecimal is rejected and nothing is written.
 TEST(ParseHexValue, RejectsInvalidText)
 {
     uint32_t value = 99;
@@ -54,7 +54,7 @@ TEST(ParseHexValue, RejectsInvalidText)
     EXPECT_EQ(99u, value);
 }
 
-// UT-04: a valid line, with and without a line ending, gives the right frame. 
+// UT-04: a valid line, with and without a line ending, gives the right frame.
 TEST(ParseFrameLine, ParsesValidLineWithAndWithoutLineEnding)
 {
     CanFrame_t frame;
@@ -81,7 +81,7 @@ TEST(ParseFrameLine, RejectsWrongFieldCount)
               parseFrameLine("1000,0x100,8,1A,2C,78,80,00,00,00,CE,FF", &frame));
 }
 
-// UT-06: a data byte that is not hexadecimal is rejected, frame unchanged. 
+// UT-06: a data byte that is not hexadecimal is rejected, frame unchanged.
 TEST(ParseFrameLine, RejectsInvalidDataByte)
 {
     CanFrame_t frame;
@@ -117,7 +117,7 @@ static CanFrame_t validEngineFrame()
     return frame;
 }
 
-// UT-08: XOR checksum is calculated from the first seven bytes. 
+// UT-08: XOR checksum is calculated from the first seven bytes.
 TEST(CalculateChecksum, CalculatesSevenByteXor)
 {
     const uint8_t data[DATA_BYTES] = {0x1A, 0x2C, 0x78, 0x80, 0, 0, 0, 0xFF};
@@ -136,7 +136,7 @@ TEST(ValidateFrame, AcceptsValidEngineFrame)
     EXPECT_EQ(STATUS_SUCCESS, validateFrame(&frame));
 }
 
-// UT-10: an identifier absent from the signal table is rejected.   
+// UT-10: an identifier absent from the signal table is rejected.
 TEST(ValidateFrame, RejectsUnknownIdentifier)
 {
     CanFrame_t frame = validEngineFrame();
@@ -144,7 +144,7 @@ TEST(ValidateFrame, RejectsUnknownIdentifier)
     EXPECT_EQ(STATUS_ERR_UNKNOWN_ID, validateFrame(&frame));
 }
 
-// UT-11: the data length must be exactly eight. 
+// UT-11: the data length must be exactly eight.
 TEST(ValidateFrame, RejectsWrongDataLength)
 {
     CanFrame_t frame = validEngineFrame();
