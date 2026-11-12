@@ -28,14 +28,17 @@ static const MessageDefinition_t messageTable[MESSAGE_COUNT] =
       { {"battery voltage", "V", 0U, 8U, 0.1F, 0.0F} } }
 };
 
-// Returns the constant message definition for an identifier, or NULL if unknown. 
+// Returns the constant message definition for an identifier, or NULL if unknown.
 const MessageDefinition_t *findMessageDefinition(uint16_t id)
 {
     uint8_t i;
 
     for (i = 0U; i < MESSAGE_COUNT; i++)
     {
-        if (messageTable[i].id == id) return &messageTable[i];
+        if (messageTable[i].id == id)
+        {
+            return &messageTable[i];
+        }
     }
     return NULL;
 }
@@ -47,7 +50,7 @@ Status_t extractBits(const uint8_t *data, uint8_t startBit, uint8_t bitLength, u
     uint32_t mask;
     uint8_t i;
 
-    if ((data == NULL) || (raw == NULL)) 
+    if ((data == NULL) || (raw == NULL))
     {
         return STATUS_ERR_NULL_POINTER;
     }
@@ -63,11 +66,11 @@ Status_t extractBits(const uint8_t *data, uint8_t startBit, uint8_t bitLength, u
         packed |= ((uint64_t)data[i] << ((uint32_t)i * 8U));
     }
 
-    if (bitLength == 32U) 
+    if (bitLength == 32U)
     {
         mask = UINT32_MAX;
     }
-    else 
+    else
     {
         mask = (uint32_t)((1UL << bitLength) - 1UL);
     }
@@ -94,19 +97,19 @@ Status_t decodeFrame(const CanFrame_t *frame, DecodedValues_t *decoded)
     uint8_t i;
     Status_t status;
 
-    if (decoded == NULL) 
+    if (decoded == NULL)
     {
         return STATUS_ERR_NULL_POINTER;
     }
     decoded->count = 0U;
 
-    if (frame == NULL) 
+    if (frame == NULL)
     {
         return STATUS_ERR_NULL_POINTER;
     }
     definition = findMessageDefinition(frame->id);
 
-    if (definition == NULL) 
+    if (definition == NULL)
     {
         return STATUS_ERR_UNKNOWN_ID;
     }
@@ -116,14 +119,14 @@ Status_t decodeFrame(const CanFrame_t *frame, DecodedValues_t *decoded)
         status = extractBits(frame->data, definition->signals[i].startBit,
                              definition->signals[i].bitLength, &raw);
 
-        if (status != STATUS_SUCCESS) 
+        if (status != STATUS_SUCCESS)
         {
             return status;
         }
         result.values[i] = convertRawValue(raw, definition->signals[i].factor,
                                             definition->signals[i].offset);
     }
-    
+
     result.count = definition->signalCount;
     *decoded = result;
 

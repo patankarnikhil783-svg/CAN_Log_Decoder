@@ -14,23 +14,23 @@ extern "C" {
 #endif
 
 
-//---Constants---                                                          
+//---Constants---
 
 
-#define MAX_FRAMES 1000 // frames kept in memory            
-#define DATA_BYTES 8 // data bytes in every frame       
-#define FIELDS_PER_LINE 11 // fields in one CSV data line      
-#define CHECKSUM_INDEX 7 // index of the checksum byte       
-#define MAX_CAN_ID 0x7FF // largest 11-bit identifier        
-#define MESSAGE_COUNT 3 // number of known messages         
-#define MAX_SIGNALS_PER_MESSAGE 3 // largest signal count of a message 
-#define MAX_LINE_LENGTH 256 // buffer size for one text line    
-#define MAX_FILE_NAME_LENGTH 128 // buffer size for a file name      
-#define MAX_INPUT_ATTEMPTS 3 // retries after invalid input      
-#define MAX_INPUT_LENGTH 16 // buffer size for a menu entry     
+#define MAX_FRAMES 1000 // frames kept in memory
+#define DATA_BYTES 8 // data bytes in every frame
+#define FIELDS_PER_LINE 11 // fields in one CSV data line
+#define CHECKSUM_INDEX 7 // index of the checksum byte
+#define MAX_CAN_ID 0x7FF // largest 11-bit identifier
+#define MESSAGE_COUNT 3 // number of known messages
+#define MAX_SIGNALS_PER_MESSAGE 3 // largest signal count of a message
+#define MAX_LINE_LENGTH 256 // buffer size for one text line
+#define MAX_FILE_NAME_LENGTH 128 // buffer size for a file name
+#define MAX_INPUT_ATTEMPTS 3 // retries after invalid input
+#define MAX_INPUT_LENGTH 16 // buffer size for a menu entry
 
-#define ID_ENGINE_DATA 0x100 //identifier of the engine message 
-#define ID_VEHICLE_SPEED 0x200 // identifier of the speed message 
+#define ID_ENGINE_DATA 0x100 //identifier of the engine message
+#define ID_VEHICLE_SPEED 0x200 // identifier of the speed message
 #define ID_BATTERY_STATUS 0x300 // identifier of the battery message
 
 
@@ -70,10 +70,10 @@ typedef enum
 } MenuChoice_t;
 
 
-// Structures                                                        
+// Structures
 
 
-// One CAN frame as read from the log. data[7] is the checksum. 
+// One CAN frame as read from the log. data[7] is the checksum.
 typedef struct
 {
     uint32_t timeMs;
@@ -82,7 +82,7 @@ typedef struct
     uint8_t  data[DATA_BYTES];
 } CanFrame_t;
 
-// Where one signal sits in the data bytes and how to convert its value. 
+// Where one signal sits in the data bytes and how to convert its value.
 typedef struct
 {
     const char *name;
@@ -102,7 +102,7 @@ typedef struct
     SignalDefinition_t signals[MAX_SIGNALS_PER_MESSAGE];
 } MessageDefinition_t;
 
-// The physical values decoded from one frame. 
+// The physical values decoded from one frame.
 typedef struct
 {
     uint8_t count;
@@ -118,7 +118,7 @@ typedef struct
     DecodedValues_t decoded;
 } StoredFrame_t;
 
-// The fixed-size store of processed frames. 
+// The fixed-size store of processed frames.
 typedef struct
 {
     StoredFrame_t items[MAX_FRAMES];
