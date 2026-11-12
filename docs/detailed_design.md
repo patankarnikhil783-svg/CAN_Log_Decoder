@@ -1459,7 +1459,7 @@ Further rules:
 |---|---|---|
 | Source files | lowercase with underscores, `.c` | `file_handler.c` |
 | Header files | lowercase with underscores, `.h` | `frame_store.h` |
-| Test files | `test_` followed by the module name, `.cpp` | `test_parser.cpp` |
+| Test files | `test_` followed by the project name, `.cpp` | `test_can_log_decoder.cpp` |
 | Functions | camelCase, starting with a verb | `parseFrameLine`, `validateFrame` |
 | Local variables and parameters | camelCase, meaningful names | `frameCount`, `maxIndices` |
 | Structure and enumeration members | camelCase for structure members | `timeMs`, `bitLength` |
@@ -1644,12 +1644,7 @@ system tests are deleted afterwards.
 
 | Test file | Tests |
 |---|---|
-| `tests/test_parser.cpp` | UT-01 to UT-07 |
-| `tests/test_validation.cpp` | UT-08 to UT-13 |
-| `tests/test_decoder.cpp` | UT-14 to UT-21 |
-| `tests/test_frame_store.cpp` | UT-22 to UT-27 |
-| `tests/test_menu.cpp` | UT-28 to UT-29 |
-| `tests/test_report.cpp` | UT-30 |
+| `tests/test_can_log_decoder.cpp` | UT-01 to UT-30, grouped in test suites by function (parser, validation, decoder, frame store, menu and status text) |
 
 **Test naming.** `TEST(FunctionName, Behaviour)`, for example
 `TEST(ExtractBits, ReadsTwoByteSignal)`.
