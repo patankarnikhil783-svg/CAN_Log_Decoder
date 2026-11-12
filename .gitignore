@@ -13,3 +13,4 @@ core
 
 # Editor and IDE settings
 .vscode/
+*.swp
